@@ -1,19 +1,21 @@
-import { adminAuth } from "../../../lib/firebaseAdmin";
 import { NextResponse } from "next/server";
 
+const sessions = {};
+
 export async function POST(req) {
-    try {
-        const { phone } = await req.json();
+    const { phone } = await req.json();
 
-        if (!phone) {
-            return NextResponse.json({ error: "Phone number required" }, { status: 400 });
-        }
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-        const sessionInfo = await adminAuth.createSessionCookie(phone, { expiresIn: 5 * 60 * 1000 });
+    console.log("📩 CUSTOM OTP SENT:", otp, "to", phone);
 
-        return NextResponse.json({ sessionInfo });
-    } catch (error) {
-        console.error("send-otp error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const sessionId = Date.now().toString();
+    sessions[sessionId] = {
+        otp,
+        createdAt: Date.now()
+    };
+
+    return NextResponse.json({ sessionId });
 }
+
+export const sessionsStore = sessions;

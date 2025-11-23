@@ -178,6 +178,7 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack }) => {
                                     onUpdate({ ...data, location, locationCoords: coords })
                                 }
                                 onRadiusChange={(radius) => handleInputChange("radius", radius)}
+                                mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_KEY}
                             />
                         </div>
 
