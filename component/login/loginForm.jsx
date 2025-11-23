@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Phone, Lock, Eye, EyeOff, Mail } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "../lib/firebase";
-import { useToast } from "../hooks/use-toast";
+import { auth, db } from "../../lib/firebase";
+import { useToast } from "../../hooks/use-toast";
 
 export default function LoginComponent() {
     const router = useRouter();
