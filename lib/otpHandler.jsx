@@ -10,17 +10,53 @@ async function sendCustomOtp(phone) {
         body: JSON.stringify({ phone })
     });
 
-    return await res.json();
+    const data = await res.json();
+    
+    // If response is not ok, throw error with the message
+    if (!res.ok || data.error) {
+        const errorMessage = data.error || data.message || "Failed to send OTP";
+        const error = new Error(errorMessage);
+        error.details = data;
+        throw error;
+    }
+
+    return data;
 }
 
 async function verifyCustomOtp(sessionId, otp) {
-    const res = await fetch("/api/verify-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, otp })
-    });
+    try {
+        const res = await fetch("/api/verify-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId, otp })
+        });
 
-    return await res.json();
+        let data;
+        try {
+            data = await res.json();
+        } catch (jsonError) {
+            // If JSON parsing fails, return error response
+            console.error("Failed to parse response as JSON:", jsonError);
+            return {
+                success: false,
+                message: res.status === 400 
+                    ? "Invalid request. Please check your input and try again."
+                    : "An error occurred while verifying OTP. Please try again."
+            };
+        }
+        
+        // Always return the data, even if status is not ok (400, 500, etc.)
+        // The caller will check result.success to handle errors
+        // This ensures we get error messages from the API for all status codes
+        return data;
+    } catch (error) {
+        // Handle network errors or other fetch errors
+        console.error("Error verifying OTP:", error);
+        return {
+            success: false,
+            message: error.message || "Network error. Please check your connection and try again."
+        };
+    }
 }
 
 async function sendFirebaseOtp(phone) {

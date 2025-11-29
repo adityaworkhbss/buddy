@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -12,13 +12,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { MediaUpload } from "../ui/media-upload";
 import { LocationMap } from "../map/LocationMap";
 import { Home, Search, Calendar, MapPin, Camera } from "lucide-react";
+import { useToast } from "../../hooks/use-toast";
 
 const amenitiesList = [
     "WiFi", "Parking", "Gym", "Swimming Pool", "Laundry", "Air Conditioning",
     "Balcony", "Pet Friendly", "Furnished", "Kitchen"
 ];
 
-export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack }) => {
+export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack, personalInfo }) => {
+    // Location search state
+    const [locationSearchQuery, setLocationSearchQuery] = useState("");
+    const [locationSearchResults, setLocationSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_KEY;
+    const { toast } = useToast();
+
     // Update main fields
     const handleInputChange = (field, value) => {
         onUpdate({ ...data, [field]: value });
@@ -56,11 +66,185 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack }) => {
         }
     };
 
-    const isValid =
-        data.searchType &&
-        data.budget &&
-        data.location &&
-        data.movingDate;
+    // Search location using Mapbox Geocoding API
+    const searchLocation = useCallback(async (query) => {
+        if (!query.trim() || !mapboxToken) {
+            setLocationSearchResults([]);
+            return;
+        }
+
+        setIsSearching(true);
+        try {
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+                query
+            )}.json?access_token=${mapboxToken}&autocomplete=true&limit=5`;
+
+            const res = await fetch(url);
+            const data = await res.json();
+
+            if (data.features) {
+                setLocationSearchResults(data.features);
+            }
+        } catch (error) {
+            console.error("Error searching location:", error);
+            setLocationSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    }, [mapboxToken]);
+
+    // Handle location selection from search
+    const handleSelectLocation = (place) => {
+        const coords = place.center; // [lng, lat]
+        setLocationSearchQuery(place.place_name);
+        setLocationSearchResults([]);
+        onUpdate({ ...data, location: place.place_name, locationCoords: coords });
+    };
+
+    // Debounce search
+    useEffect(() => {
+        if (!locationSearchQuery.trim()) {
+            setLocationSearchResults([]);
+            return;
+        }
+
+        const timeoutId = setTimeout(() => {
+            searchLocation(locationSearchQuery);
+        }, 300);
+
+        return () => clearTimeout(timeoutId);
+    }, [locationSearchQuery, searchLocation]);
+
+    // Upload files to S3 and get URLs
+    const uploadFiles = async (files, type = "media") => {
+        if (!files || files.length === 0) return [];
+
+        const uploadedUrls = [];
+        
+        for (const fileItem of files) {
+            // If it's already a URL string, use it
+            if (typeof fileItem === "string") {
+                uploadedUrls.push(fileItem);
+                continue;
+            }
+
+            // If it has a file object, upload it
+            if (fileItem.file) {
+                const fileFormData = new FormData();
+                fileFormData.append("file", fileItem.file);
+                fileFormData.append("type", type);
+
+                try {
+                    const uploadResponse = await fetch("/api/upload", {
+                        method: "POST",
+                        body: fileFormData,
+                    });
+
+                    const uploadResult = await uploadResponse.json();
+                    if (uploadResult.success && uploadResult.url) {
+                        uploadedUrls.push(uploadResult.url);
+                    }
+                } catch (error) {
+                    console.error("Error uploading file:", error);
+                }
+            }
+        }
+
+        return uploadedUrls;
+    };
+
+    // Save profile data to database
+    const handleSaveProfile = async () => {
+        // Check if user has phone number (required for saving)
+        if (!personalInfo?.whatsapp) {
+            toast({
+                title: "Error",
+                description: "Phone number is required",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            // Upload profile picture if it's a file
+            let profilePictureUrl = personalInfo.profilePicture;
+            if (personalInfo.profilePicture && personalInfo.profilePicture instanceof File) {
+                const profilePicFormData = new FormData();
+                profilePicFormData.append("file", personalInfo.profilePicture);
+                profilePicFormData.append("type", "profile");
+
+                const picUploadResponse = await fetch("/api/upload", {
+                    method: "POST",
+                    body: profilePicFormData,
+                });
+
+                const picUploadResult = await picUploadResponse.json();
+                if (picUploadResult.success && picUploadResult.url) {
+                    profilePictureUrl = picUploadResult.url;
+                }
+            }
+
+            // Upload media files
+            const mediaUrls = await uploadFiles(data.flatDetails?.media || [], "media");
+
+            const formData = new FormData();
+            
+            // Get phone number
+            const cleaned = (personalInfo.whatsapp || "").replace(/\D/g, "");
+            const phone = `+91${cleaned}`;
+            formData.append("phone", phone);
+            
+            // Add personal info with uploaded profile picture URL
+            const personalInfoToSave = {
+                ...personalInfo,
+                profilePicture: profilePictureUrl,
+                // Include password if it exists (for initial setup)
+                password: personalInfo.password || undefined,
+            };
+            formData.append("personalInfo", JSON.stringify(personalInfoToSave));
+            
+            // Add housing details with uploaded media URLs
+            const housingDetailsToSave = {
+                ...data,
+                flatDetails: {
+                    ...data.flatDetails,
+                    media: mediaUrls,
+                },
+            };
+            formData.append("housingDetails", JSON.stringify(housingDetailsToSave));
+
+            const response = await fetch("/api/user/update-profile", {
+                method: "PUT",
+                body: formData,
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.message || "Failed to save profile");
+            }
+
+            toast({
+                title: "Success",
+                description: "Profile updated successfully!",
+            });
+
+            // Continue to next step
+            if (onNext) {
+                onNext();
+            }
+        } catch (error) {
+            console.error("Error saving profile:", error);
+            toast({
+                title: "Error",
+                description: error.message || "Failed to save profile. Please try again.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -171,6 +355,34 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack }) => {
                                 Preferred Location
                             </Label>
 
+                            {/* Location Search Input */}
+                            <div className="relative">
+                                <Input
+                                    placeholder="Search location..."
+                                    value={locationSearchQuery}
+                                    onChange={(e) => setLocationSearchQuery(e.target.value)}
+                                    className="w-full"
+                                />
+                                {isSearching && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                    </div>
+                                )}
+                                {locationSearchResults.length > 0 && (
+                                    <div className="absolute z-50 bg-white border rounded-lg w-full mt-1 shadow-lg max-h-60 overflow-y-auto">
+                                        {locationSearchResults.map((place) => (
+                                            <div
+                                                key={place.id}
+                                                onClick={() => handleSelectLocation(place)}
+                                                className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
+                                            >
+                                                {place.place_name}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                             <LocationMap
                                 location={data.location}
                                 radius={data.radius}
@@ -178,7 +390,7 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack }) => {
                                     onUpdate({ ...data, location, locationCoords: coords })
                                 }
                                 onRadiusChange={(radius) => handleInputChange("radius", radius)}
-                                mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_KEY}
+                                mapboxToken={mapboxToken}
                             />
                         </div>
 
@@ -353,10 +565,10 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack }) => {
                 <Button
                     className="flex-1 h-12"
                     variant="gradient"
-                    disabled={!isValid}
-                    onClick={onNext}
+                    onClick={handleSaveProfile}
+                    disabled={isSaving}
                 >
-                    Continue to Preferences
+                    {isSaving ? "Saving..." : "Continue to Preferences"}
                 </Button>
             </div>
         </div>

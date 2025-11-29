@@ -8,9 +8,94 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  uid       String   @unique
-  phone     String   @unique
-  password  String
-  createdAt DateTime @default(now())
+  id                Int                @id @default(autoincrement()) // userId - Primary key, required, auto-generated
+  uid               String             @unique
+  phone             String             @unique
+  password          String
+  profilePicture    String?
+  fullName          String?
+  age               Int?
+  gender            String?
+  isWhatsappNumber  Boolean            @default(false)
+  smoking           String?
+  drinking          String?
+  diet              String?
+  sleepSchedule     String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  
+  workExperiences   WorkExperience[]
+  educations        Education[]
+  housingDetails    HousingDetails?
+}
+
+model WorkExperience {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  experienceTitle String?
+  company         String?
+  position        String?
+  from            DateTime?
+  till            DateTime?
+  stillWorking    Boolean  @default(false)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Education {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  educationTitle  String?
+  institution     String?
+  degree          String?
+  from            DateTime?
+  till            DateTime?
+  stillStudying   Boolean  @default(false)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model HousingDetails {
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @unique
+  lookingFor          String?
+  budgetMin           Int?
+  budgetMax           Int?
+  movingDate          DateTime?
+  preferenceLocation  String?
+  searchRadius        Int?
+  latitude            Float?
+  longitude           Float?
+  roomType            String?
+  preferredAmenities  String[]  @default([])
+  address             String?
+  roomsAvailable      Int?
+  totalRooms           Int?
+  rentPerRoom         Int?
+  availableFrom       DateTime?
+  deposit             Float?
+  availableAmenities  String[]  @default([])
+  description         String?
+  photosVideos        String[]  @default([])
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model OtpSession {
+  sessionId        String   @id
+  otp              String
+  phone            String
+  timeOfCreation   DateTime @default(now())
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([phone])
+  @@index([timeOfCreation])
 }

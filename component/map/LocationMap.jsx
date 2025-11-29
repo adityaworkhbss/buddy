@@ -2,283 +2,314 @@
 
 import { useEffect, useRef, useState } from "react";
 import "mapbox-gl/dist/mapbox-gl.css";
-import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 
-import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Slider } from "../ui/slider";
 import { MapPin } from "lucide-react";
 
 export const LocationMap = ({
-                                location,
-                                radius,
-                                onLocationChange,
-                                onRadiusChange,
-                                mapboxToken,
-                            }) => {
+    location,
+    radius,
+    onLocationChange,
+    onRadiusChange,
+    mapboxToken,
+}) => {
     const mapContainer = useRef(null);
     const map = useRef(null);
     const marker = useRef(null);
 
-    const [tempToken, setTempToken] = useState(mapboxToken || "");
-    const [isTokenSet, setIsTokenSet] = useState(!!mapboxToken);
-
-    const [currentCoords, setCurrentCoords] = useState([77.209, 28.6139]); // Default Delhi
+    const [mapLoading, setMapLoading] = useState(true);
+    const [mapError, setMapError] = useState(null);
+    const [currentCoords, setCurrentCoords] = useState([77.209, 28.6139]); // [lng, lat] - Default Delhi
 
     const radiusCircleId = "radius-circle";
 
-    // Custom Search
-    const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
-
-    // Load mapbox token
+    // Initialize Mapbox map
     useEffect(() => {
-        if (mapboxToken) {
-            setTempToken(mapboxToken);
-            setIsTokenSet(true);
-        }
-    }, [mapboxToken]);
-
-    // INITIAL MAP LOAD — using CSP version of Mapbox
-    useEffect(() => {
-        if (!mapContainer.current || !tempToken || map.current) return;
-
-        (async () => {
-            // ⭐ CSP BUILD (NO workerClass NEEDED)
-            const mapboxgl = (await import("mapbox-gl/dist/mapbox-gl-csp.js")).default;
-            const MapboxGeocoder = (await import("@mapbox/mapbox-gl-geocoder")).default;
-
-            mapboxgl.accessToken = tempToken;
-
-            const mapInit = new mapboxgl.Map({
-                container: mapContainer.current,
-                style: "mapbox://styles/mapbox/streets-v12",
-                center: currentCoords,
-                zoom: 12,
-            });
-
-            map.current = mapInit;
-
-            mapInit.on("load", () => {
-                mapInit.addControl(new mapboxgl.NavigationControl(), "top-right");
-
-                // ⭐ Mapbox Search Control (optional)
-                const geocoder = new MapboxGeocoder({
-                    accessToken: tempToken,
-                    mapboxgl,
-                    marker: false,
-                    placeholder: "Search location...",
-                });
-                mapInit.addControl(geocoder);
-
-                geocoder.on("result", (e) => {
-                    const coords = e.result.center;
-                    setCurrentCoords(coords);
-                    onLocationChange(e.result.place_name, coords);
-                    flyAndUpdate(coords);
-                });
-
-                // ⭐ Marker
-                marker.current = new mapboxgl.Marker({
-                    draggable: true,
-                    color: "#6366f1",
-                })
-                    .setLngLat(currentCoords)
-                    .addTo(mapInit);
-
-                marker.current.on("dragend", () => {
-                    const ll = marker.current.getLngLat();
-                    const coords = [ll.lng, ll.lat];
-                    setCurrentCoords(coords);
-                    reverseGeocode(coords);
-                    drawRadius(coords, radius);
-                });
-
-                drawRadius(currentCoords, radius);
-            });
-
-            // ⭐ Auto Detect User Location
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const coords = [pos.coords.longitude, pos.coords.latitude];
-                        setCurrentCoords(coords);
-                        flyAndUpdate(coords);
-                        reverseGeocode(coords);
-                    },
-                    () => console.log("Geolocation block — default Delhi")
-                );
+        if (!mapContainer.current || !mapboxToken || map.current) {
+            if (!mapboxToken) {
+                setMapError("Mapbox token is required");
+                setMapLoading(false);
             }
-        })();
-
-        return () => map.current?.remove();
-    }, [tempToken]);
-
-    // Update radius dynamically
-    useEffect(() => {
-        if (map.current?.isStyleLoaded()) {
-            drawRadius(currentCoords, radius);
-        }
-    }, [radius, currentCoords]);
-
-    // ⭐ Fetch search autocomplete suggestions
-    const searchLocation = async (query) => {
-        if (!query.trim()) {
-            setSearchResults([]);
             return;
         }
 
-        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-            query
-        )}.json?autocomplete=true&limit=5&access_token=${tempToken}`;
+        // Wait for container to have dimensions
+        const initMap = async () => {
+            // Check container dimensions
+            if (mapContainer.current.offsetWidth === 0 || mapContainer.current.offsetHeight === 0) {
+                setTimeout(initMap, 100);
+                return;
+            }
 
-        const res = await fetch(url);
-        const data = await res.json();
+            try {
+                setMapLoading(true);
+                setMapError(null);
 
-        if (data.features) {
-            setSearchResults(data.features);
+                // Dynamically import Mapbox GL
+                const mapboxgl = (await import("mapbox-gl")).default;
+
+                // Disable telemetry
+                if (mapboxgl.config) {
+                    mapboxgl.config.COLLECT_MAPBOX_TELEMETRY = false;
+                }
+
+                // Set access token
+                mapboxgl.accessToken = mapboxToken;
+
+                // Create map
+                const mapInstance = new mapboxgl.Map({
+                    container: mapContainer.current,
+                    style: "mapbox://styles/mapbox/streets-v12",
+                    center: currentCoords,
+                    zoom: 12,
+                });
+
+                map.current = mapInstance;
+
+                // Wait for map to load
+                mapInstance.on("load", () => {
+                    setMapLoading(false);
+
+                    // Add navigation controls
+                    mapInstance.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+                    // Create draggable marker
+                    marker.current = new mapboxgl.Marker({
+                        draggable: true,
+                        color: "#6366f1",
+                    })
+                        .setLngLat(currentCoords)
+                        .addTo(mapInstance);
+
+                    // Handle marker drag
+                    marker.current.on("dragend", () => {
+                        const lngLat = marker.current.getLngLat();
+                        const coords = [lngLat.lng, lngLat.lat];
+                        setCurrentCoords(coords);
+                        reverseGeocode(coords);
+                        drawRadius(coords, radius);
+                    });
+
+                    // Handle map click
+                    mapInstance.on("click", (e) => {
+                        const coords = [e.lngLat.lng, e.lngLat.lat];
+                        setCurrentCoords(coords);
+                        marker.current.setLngLat(coords);
+                        reverseGeocode(coords);
+                        drawRadius(coords, radius);
+                    });
+
+                    // Draw initial radius
+                    drawRadius(currentCoords, radius);
+
+                    // Resize map after a short delay to ensure proper rendering
+                    setTimeout(() => {
+                        mapInstance.resize();
+                    }, 100);
+                });
+
+                // Handle map errors
+                mapInstance.on("error", (e) => {
+                    console.error("Mapbox error:", e);
+                    setMapError("Failed to load map. Please check your Mapbox token.");
+                    setMapLoading(false);
+                });
+
+                // Auto-detect user location
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                            const coords = [pos.coords.longitude, pos.coords.latitude];
+                            setCurrentCoords(coords);
+                            mapInstance.flyTo({ center: coords, zoom: 13 });
+                            updateMarkerAndRadius(coords);
+                            reverseGeocode(coords);
+                        },
+                        () => {
+                            console.log("Geolocation blocked — using default location");
+                        }
+                    );
+                }
+            } catch (error) {
+                console.error("Error initializing map:", error);
+                setMapError(error.message || "Failed to initialize map");
+                setMapLoading(false);
+            }
+        };
+
+        initMap();
+
+        return () => {
+            if (map.current) {
+                map.current.remove();
+                map.current = null;
+            }
+            marker.current = null;
+        };
+    }, [mapboxToken]);
+
+    // Update radius when it changes
+    useEffect(() => {
+        if (map.current?.isStyleLoaded() && currentCoords) {
+            drawRadius(currentCoords, radius);
         }
+    }, [radius]);
+
+    // Update marker and radius
+    const updateMarkerAndRadius = (coords) => {
+        if (marker.current) {
+            marker.current.setLngLat(coords);
+        }
+        if (map.current) {
+            map.current.flyTo({ center: coords, zoom: 13 });
+        }
+        drawRadius(coords, radius);
     };
 
-    // ⭐ When user selects suggestion
-    const handleSelectLocation = (place) => {
-        const coords = place.center;
-
-        setCurrentCoords(coords);
-        onLocationChange(place.place_name, coords);
-
-        flyAndUpdate(coords);
-
-        setSearchResults([]);
-        setSearchQuery(place.place_name);
-    };
-
-    // ⭐ Reverse geocoding
+    // Reverse geocoding
     const reverseGeocode = (coords) => {
+        if (!mapboxToken) return;
+
         fetch(
-            `https://api.mapbox.com/geocoding/v5/mapbox.places/${coords[0]},${coords[1]}.json?access_token=${tempToken}`
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${coords[0]},${coords[1]}.json?access_token=${mapboxToken}`
         )
             .then((r) => r.json())
             .then((d) => {
                 if (d.features?.[0]) {
                     onLocationChange(d.features[0].place_name, coords);
                 }
-            });
+            })
+            .catch((err) => console.error("Reverse geocoding error:", err));
     };
 
-    // ⭐ Move map + update marker & circle
-    const flyAndUpdate = (coords) => {
-        if (!map.current) return;
-
-        map.current.flyTo({ center: coords, zoom: 13 });
-
-        if (marker.current) marker.current.setLngLat(coords);
-
-        drawRadius(coords, radius);
-    };
-
-    // ⭐ Draw radius circle
+    // Draw radius circle
     const drawRadius = (center, radiusKm) => {
-        if (!map.current) return;
+        if (!map.current || !map.current.isStyleLoaded()) {
+            return;
+        }
 
         const mapObj = map.current;
 
-        // Delete previous circle
-        if (mapObj.getLayer(radiusCircleId)) mapObj.removeLayer(radiusCircleId);
-        if (mapObj.getLayer(radiusCircleId + "-outline"))
-            mapObj.removeLayer(radiusCircleId + "-outline");
-        if (mapObj.getSource(radiusCircleId)) mapObj.removeSource(radiusCircleId);
+        try {
+            // Remove existing circle
+            if (mapObj.getLayer(radiusCircleId)) {
+                mapObj.removeLayer(radiusCircleId);
+            }
+            if (mapObj.getLayer(radiusCircleId + "-outline")) {
+                mapObj.removeLayer(radiusCircleId + "-outline");
+            }
+            if (mapObj.getSource(radiusCircleId)) {
+                mapObj.removeSource(radiusCircleId);
+            }
 
-        const radiusInDegrees = radiusKm / 111;
-        const points = 64;
-        const circleCoords = [];
+            // Calculate circle coordinates
+            const radiusInDegrees = radiusKm / 111;
+            const points = 64;
+            const circleCoords = [];
 
-        for (let i = 0; i < points; i++) {
-            const angle = (i / points) * Math.PI * 2;
-            const lng = center[0] + radiusInDegrees * Math.cos(angle);
-            const lat = center[1] + radiusInDegrees * Math.sin(angle);
-            circleCoords.push([lng, lat]);
+            for (let i = 0; i < points; i++) {
+                const angle = (i / points) * Math.PI * 2;
+                const lng = center[0] + radiusInDegrees * Math.cos(angle);
+                const lat = center[1] + radiusInDegrees * Math.sin(angle);
+                circleCoords.push([lng, lat]);
+            }
+            circleCoords.push(circleCoords[0]);
+
+            // Add circle source
+            mapObj.addSource(radiusCircleId, {
+                type: "geojson",
+                data: {
+                    type: "Feature",
+                    geometry: {
+                        type: "Polygon",
+                        coordinates: [circleCoords],
+                    },
+                },
+            });
+
+            // Add fill layer
+            mapObj.addLayer({
+                id: radiusCircleId,
+                type: "fill",
+                source: radiusCircleId,
+                paint: {
+                    "fill-color": "#6366f1",
+                    "fill-opacity": 0.25,
+                },
+            });
+
+            // Add outline layer
+            mapObj.addLayer({
+                id: radiusCircleId + "-outline",
+                type: "line",
+                source: radiusCircleId,
+                paint: {
+                    "line-color": "#6366f1",
+                    "line-width": 2,
+                },
+            });
+        } catch (error) {
+            console.error("Error drawing radius:", error);
         }
-        circleCoords.push(circleCoords[0]);
-
-        mapObj.addSource(radiusCircleId, {
-            type: "geojson",
-            data: {
-                type: "Feature",
-                geometry: { type: "Polygon", coordinates: [circleCoords] },
-            },
-        });
-
-        mapObj.addLayer({
-            id: radiusCircleId,
-            type: "fill",
-            source: radiusCircleId,
-            paint: { "fill-color": "#6366f1", "fill-opacity": 0.25 },
-        });
-
-        mapObj.addLayer({
-            id: radiusCircleId + "-outline",
-            type: "line",
-            source: radiusCircleId,
-            paint: { "line-color": "#6366f1", "line-width": 2 },
-        });
     };
 
-    // Token input UI
-    if (!isTokenSet && !mapboxToken) {
+    // Show token input if no token provided
+    if (!mapboxToken) {
         return (
-            <div className="p-4 border rounded-lg">
-                <Label>Mapbox Public Token</Label>
-                <Input
-                    placeholder="pk.eyJ1..."
-                    value={tempToken}
-                    onChange={(e) => setTempToken(e.target.value)}
-                />
+            <div className="p-4 border rounded-lg bg-yellow-50 dark:bg-yellow-900/20">
+                <Label className="text-sm font-medium">Mapbox Token Required</Label>
+                <p className="text-xs text-muted-foreground mb-2 mt-1">
+                    Please set NEXT_PUBLIC_MAPBOX_PUBLIC_KEY in your .env.local file
+                </p>
+                <p className="text-xs text-muted-foreground">
+                    Get your token from{" "}
+                    <a
+                        href="https://account.mapbox.com/access-tokens/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline"
+                    >
+                        Mapbox
+                    </a>
+                </p>
             </div>
         );
     }
 
     return (
         <div className="space-y-5">
-
-            {/* ⭐ CUSTOM SEARCH */}
-            <div className="relative">
-                <Input
-                    placeholder="Search location..."
-                    value={searchQuery}
-                    onChange={(e) => {
-                        setSearchQuery(e.target.value);
-                        searchLocation(e.target.value);
-                    }}
+            {/* Map Container */}
+            <div
+                className="relative w-full h-[400px] rounded-lg overflow-hidden border bg-gray-100 dark:bg-gray-800"
+                style={{ minHeight: "400px" }}
+            >
+                <div
+                    ref={mapContainer}
+                    className="absolute inset-0 w-full h-full"
+                    style={{ width: "100%", height: "100%" }}
                 />
-
-                {searchResults.length > 0 && (
-                    <div className="absolute z-50 bg-white border rounded-lg w-full mt-1 shadow-lg max-h-60 overflow-y-auto">
-                        {searchResults.map((place) => (
-                            <div
-                                key={place.id}
-                                onClick={() => handleSelectLocation(place)}
-                                className="p-2 hover:bg-gray-100 cursor-pointer text-sm"
-                            >
-                                {place.place_name}
-                            </div>
-                        ))}
+                {mapLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 z-10">
+                        <p className="text-sm text-muted-foreground">Loading map...</p>
+                    </div>
+                )}
+                {mapError && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-red-50/80 dark:bg-red-900/20 z-10">
+                        <div className="text-center p-4">
+                            <p className="text-sm text-red-600 dark:text-red-400 font-medium">{mapError}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Please check your Mapbox token</p>
+                        </div>
                     </div>
                 )}
             </div>
 
-            {/* MAP */}
-            <div className="relative w-full h-[400px] rounded-lg overflow-hidden border">
-                <div ref={mapContainer} className="absolute inset-0" />
-            </div>
-
-            {/* RADIUS SLIDER */}
+            {/* Radius Slider */}
             <div className="space-y-3">
                 <div className="flex justify-between">
                     <Label>Search Radius</Label>
                     <span className="text-sm">{radius} km</span>
                 </div>
-
                 <Slider
                     min={1}
                     max={50}
@@ -288,6 +319,7 @@ export const LocationMap = ({
                 />
             </div>
 
+            {/* Location Display */}
             {location && (
                 <div className="flex items-start gap-2 p-3 bg-accent/30 rounded-lg">
                     <MapPin className="w-4 h-4 text-primary mt-0.5" />

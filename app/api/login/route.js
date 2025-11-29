@@ -2,23 +2,53 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { adminAuth } from "../../../lib/firebaseAdmin";
 import { prisma } from "../../../lib/prisma";
+import { APP_CONFIG } from "../../../config/appConfigs";
 
 export async function POST(req) {
     try {
-        const { phone, password } = await req.json();
+        const { phone: inputPhone, password } = await req.json();
 
+        // Validate input
+        if (!inputPhone || !password) {
+            return NextResponse.json(
+                { error: "Phone number and password are required" },
+                { status: 400 }
+            );
+        }
+
+        // Automatically append +91 to phone number if not present
+        let phone = inputPhone.trim();
+        
+        // Remove any existing country code
+        phone = phone.replace(/^\+91/, "").replace(/^91/, "");
+        
+        // Remove any non-digit characters
+        phone = phone.replace(/\D/g, "");
+        
+        // Validate phone number length (should be 10 digits)
+        if (phone.length !== 10) {
+            return NextResponse.json(
+                { error: "Invalid phone number. Please enter a 10-digit number." },
+                { status: 400 }
+            );
+        }
+        
+        // Add +91 prefix
+        phone = `+91${phone}`;
+
+        // Find user by phone number
         const user = await prisma.user.findUnique({
             where: { phone },
         });
 
         if (!user) {
-            console.error("User does not exist");
             return NextResponse.json(
                 { error: "Phone number not registered" },
                 { status: 400 }
             );
         }
 
+        // Verify password
         const valid = await bcrypt.compare(password, user.password);
         if (!valid) {
             return NextResponse.json(
@@ -27,14 +57,38 @@ export async function POST(req) {
             );
         }
 
-        const firebaseToken = await adminAuth.createCustomToken(user.uid);
-
-        return NextResponse.json({
-            firebaseToken,
-        });
+        // Check if Firebase authentication is enabled
+        if (APP_CONFIG.USE_FIREBASE_AUTH) {
+            // Use Firebase for authentication
+            try {
+                const firebaseToken = await adminAuth.createCustomToken(user.uid);
+                return NextResponse.json({
+                    success: true,
+                    firebaseToken,
+                    userId: user.id,
+                    message: "Login successful"
+                });
+            } catch (firebaseError) {
+                console.error("Firebase authentication error:", firebaseError);
+                return NextResponse.json(
+                    { error: "Firebase authentication failed. Please try again." },
+                    { status: 500 }
+                );
+            }
+        } else {
+            // Use PostgreSQL database authentication (no Firebase token needed)
+            return NextResponse.json({
+                success: true,
+                userId: user.id,
+                uid: user.uid,
+                phone: user.phone,
+                message: "Login successful"
+            });
+        }
     } catch (err) {
+        console.error("Login error:", err);
         return NextResponse.json(
-            { error: err.message },
+            { error: err.message || "Login failed. Please try again." },
             { status: 500 }
         );
     }

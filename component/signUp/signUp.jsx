@@ -65,7 +65,7 @@ export const Signup = ({ onComplete }) => {
     };
 
     const handleNext = () => {
-        if (currentStep < 3) {
+        if (currentStep < 2) {
             setCurrentStep(currentStep + 1);
         }
     };
@@ -166,6 +166,7 @@ export const Signup = ({ onComplete }) => {
                                 onUpdate={handleHousingDetailsUpdate}
                                 onNext={handleNext}
                                 onBack={handleBack}
+                                personalInfo={signupData.personalInfo}
                             />
                         )}
 
