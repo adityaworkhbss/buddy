@@ -90,68 +90,84 @@ export const Signup = ({ onComplete }) => {
         }, 2000);
     };
 
-    const progressValue = (currentStep / 3) * 100;
+    const progressValue = (currentStep / 2) * 100;
 
     if (isComplete) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background p-4">
-                <Card className="w-full max-w-md mx-auto shadow-card animate-fade-in">
-                    <CardContent className="p-8 text-center space-y-6">
-                        <div className="flex justify-center">
-                            <div className="w-20 h-20 bg-gradient-primary rounded-full flex items-center justify-center">
-                                <CheckCircle className="w-10 h-10 text-primary-foreground" />
-                            </div>
+            <div className="min-h-screen flex items-center justify-center bg-[#f6f2ff] p-4">
+                <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-200 p-8 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex justify-center">
+                        <div className="w-24 h-24 bg-gradient-to-r from-pink-600 to-red-500 rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-500">
+                            <CheckCircle className="w-12 h-12 text-white" />
                         </div>
+                    </div>
 
-                        <div className="space-y-2">
-                            <h2 className="text-2xl font-bold text-foreground">Welcome to Buddy!</h2>
-                            <p className="text-muted-foreground">
-                                Your profile has been created successfully. You can now start discovering compatible flatmates in your area.
-                            </p>
-                        </div>
+                    <div className="space-y-2">
+                        <h2 className="text-3xl font-bold text-gray-800">Welcome to Buddy!</h2>
+                        <p className="text-gray-500">
+                            Your profile has been created successfully. You can now start discovering compatible flatmates in your area.
+                        </p>
+                    </div>
 
-                        <div className="space-y-2">
-                            <p className="text-sm font-medium text-foreground">What's next?</p>
-                            <ul className="text-sm text-muted-foreground space-y-1">
-                                <li>✨ Browse potential matches</li>
-                                <li>💬 Start conversations</li>
-                                <li>🏠 Find your perfect flatmate</li>
-                            </ul>
-                        </div>
-                    </CardContent>
-                </Card>
+                    <div className="space-y-3 pt-4">
+                        <p className="text-sm font-semibold text-gray-700">What's next?</p>
+                        <ul className="text-sm text-gray-600 space-y-2">
+                            <li className="flex items-center justify-center gap-2">
+                                <span className="text-lg">✨</span> Browse potential matches
+                            </li>
+                            <li className="flex items-center justify-center gap-2">
+                                <span className="text-lg">💬</span> Start conversations
+                            </li>
+                            <li className="flex items-center justify-center gap-2">
+                                <span className="text-lg">🏠</span> Find your perfect flatmate
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-background p-4">
-            <div className="max-w-2xl mx-auto py-8">
-
+        <div className="min-h-screen bg-[#f6f2ff] p-4 py-8">
+            <div className="max-w-2xl mx-auto">
                 {/* Header */}
-                <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-foreground mb-2">Join Buddy</h1>
-                    <p className="text-muted-foreground">Find your perfect flatmate in 2 simple steps</p>
+                <div className="text-center mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <h1 className="text-4xl font-bold text-gray-800 mb-2">Join Buddy</h1>
+                    <p className="text-gray-500 text-lg">Find your perfect flatmate in 2 simple steps</p>
                 </div>
 
                 {/* Progress Bar */}
-                <div className="mb-8 space-y-2">
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                        <span className={currentStep >= 1 ? "text-primary font-medium" : ""}>Personal Info</span>
-                        <span className={currentStep >= 2 ? "text-primary font-medium" : ""}>Housing Details</span>
-                        {/*<span className={currentStep >= 3 ? "text-primary font-medium" : ""}>Preferences</span>*/}
+                <div className="mb-8 space-y-3 bg-white rounded-2xl shadow-xl border border-gray-200 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="flex justify-between text-sm mb-2">
+                        <span className={`transition-colors font-medium ${
+                            currentStep >= 1 ? "text-pink-600" : "text-gray-400"
+                        }`}>
+                            Personal Info
+                        </span>
+                        <span className={`transition-colors font-medium ${
+                            currentStep >= 2 ? "text-pink-600" : "text-gray-400"
+                        }`}>
+                            Housing Details
+                        </span>
                     </div>
 
-                    <Progress value={progressValue} className="h-2" />
+                    {/* Custom Progress Bar with Gradient */}
+                    <div className="relative h-3 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                            className="absolute top-0 left-0 h-full bg-gradient-to-r from-pink-600 to-red-500 rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${progressValue}%` }}
+                        />
+                    </div>
 
-                    <div className="text-center text-sm text-muted-foreground">
+                    <div className="text-center text-sm text-gray-500 font-medium">
                         Step {currentStep} of 2
                     </div>
                 </div>
 
                 {/* Step Content */}
-                <Card className="shadow-card">
-                    <CardContent className="p-8">
+                <div className="bg-white rounded-2xl shadow-xl border border-gray-200 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="p-8">
                         {currentStep === 1 && (
                             <PersonalInfoStep
                                 data={signupData.personalInfo}
@@ -178,8 +194,8 @@ export const Signup = ({ onComplete }) => {
                         {/*        onBack={handleBack}*/}
                         {/*    />*/}
                         {/*)}*/}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
             </div>
         </div>
     );

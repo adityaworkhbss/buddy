@@ -27,6 +27,10 @@ model User {
   workExperiences   WorkExperience[]
   educations        Education[]
   housingDetails    HousingDetails?
+  conversationsAsUser1 Conversation[]  @relation("User1Conversations")
+  conversationsAsUser2 Conversation[]  @relation("User2Conversations")
+  sentMessages      Message[]          @relation("SentMessages")
+  receivedMessages  Message[]          @relation("ReceivedMessages")
 }
 
 model WorkExperience {
@@ -98,4 +102,49 @@ model OtpSession {
   
   @@index([phone])
   @@index([timeOfCreation])
+}
+
+model Conversation {
+  id            Int       @id @default(autoincrement())
+  user1Id       Int
+  user2Id       Int
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  user1         User      @relation("User1Conversations", fields: [user1Id], references: [id], onDelete: Cascade)
+  user2         User      @relation("User2Conversations", fields: [user2Id], references: [id], onDelete: Cascade)
+  messages      Message[]
+  
+  @@unique([user1Id, user2Id])
+  @@index([user1Id])
+  @@index([user2Id])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id             Int       @id @default(autoincrement())
+  conversationId Int
+  senderId       Int
+  receiverId     Int
+  content        String?   // Text content (nullable for media-only messages)
+  type           String    @default("text") // text, image, video, file
+  fileUrl        String?   // URL to uploaded file (S3, etc.)
+  fileName       String?   // Original filename
+  fileSize       Int?      // File size in bytes
+  fileType       String?   // MIME type
+  read           Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver       User         @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
+  @@index([read])
 }
