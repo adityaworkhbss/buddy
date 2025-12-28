@@ -12,9 +12,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/component/ui/tabs";
 import { Badge } from "@/component/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  User, Phone, Mail, Briefcase, BookOpen, Bookmark, Share2, Edit2, X, Save, Camera, Heart, Trash2, Home, MapPin
+  User, Phone, Mail, Briefcase, BookOpen, Bookmark, Share2, Edit2, X, Save, Camera, Heart, Trash2, Home, MapPin, Plus
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/component/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/component/ui/select";
+import { Checkbox } from "@/component/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,7 @@ import {
   DialogTitle,
 } from "@/component/ui/dialog";
 import { Copy, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface JobExperience {
   id: string;
@@ -41,6 +44,33 @@ interface EducationExperience {
   endYear: string;
 }
 
+interface HousingPreferences {
+  lookingFor: string;
+  budgetRange: string;
+  movingDate: string;
+  preferredLocation: string;
+  searchRadius: string;
+  flatTypes: string[];
+  roomTypes: string[];
+  amenities: string[];
+}
+
+interface FlatDetails {
+  address: string;
+  description: string;
+  commonAmenities: string[];
+  rooms: Array<{
+    id: string;
+    roomType: string;
+    rent: string;
+    deposit: string;
+    brokerage: string;
+    available: string;
+    quantity: string;
+    amenities: string[];
+  }>;
+}
+
 interface UserProfile {
   name: string;
   age: string;
@@ -52,6 +82,8 @@ interface UserProfile {
   profilePictureUrl: string;
   jobExperiences: JobExperience[];
   educationExperiences: EducationExperience[];
+  housingPreferences?: HousingPreferences;
+  flatDetails?: FlatDetails;
 }
 
 const mockUserProfile: UserProfile = {
@@ -82,6 +114,43 @@ const mockUserProfile: UserProfile = {
       endYear: "2020"
     }
   ],
+  housingPreferences: {
+    lookingFor: "Open To Both",
+    budgetRange: "₹15,000 - ₹30,000",
+    movingDate: "2/1/2024",
+    preferredLocation: "Andheri West, Mumbai",
+    searchRadius: "10 km",
+    flatTypes: ["1 BHK", "2 BHK"],
+    roomTypes: ["Private Room", "Shared Room"],
+    amenities: ["WiFi", "Gym", "Parking"]
+  },
+  flatDetails: {
+    address: "402, Sunshine Apartments, Lokhandwala Complex, Andheri West, Mumbai - 400053",
+    description: "Spacious 3BHK apartment in a prime location with great connectivity. Looking for working professionals or students.",
+    commonAmenities: ["WiFi", "Parking", "Gym"],
+    rooms: [
+      {
+        id: "1",
+        roomType: "Private Room",
+        rent: "18000",
+        deposit: "36000",
+        brokerage: "0",
+        available: "2/15/2024",
+        quantity: "2",
+        amenities: ["AC", "Attached Bathroom"]
+      },
+      {
+        id: "2",
+        roomType: "Shared Room",
+        rent: "10000",
+        deposit: "20000",
+        brokerage: "5000",
+        available: "2/1/2024",
+        quantity: "1",
+        amenities: ["AC"]
+      }
+    ]
+  }
 };
 
 export const ProfilePage = () => {
@@ -188,6 +257,101 @@ export const ProfilePage = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleAddJobExperience = () => {
+    const newExp: JobExperience = {
+      id: Date.now().toString(),
+      company: "",
+      position: "",
+      fromYear: "",
+      tillYear: "",
+      currentlyWorking: false
+    };
+    setEditedProfile(prev => ({
+      ...prev,
+      jobExperiences: [...prev.jobExperiences, newExp]
+    }));
+  };
+
+  const handleRemoveJobExperience = (id: string) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      jobExperiences: prev.jobExperiences.filter(exp => exp.id !== id)
+    }));
+  };
+
+  const handleUpdateJobExperience = (id: string, field: keyof JobExperience, value: string | boolean) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      jobExperiences: prev.jobExperiences.map(exp =>
+        exp.id === id ? { ...exp, [field]: value } : exp
+      )
+    }));
+  };
+
+  const handleAddEducation = () => {
+    const newEdu: EducationExperience = {
+      id: Date.now().toString(),
+      institution: "",
+      degree: "",
+      startYear: "",
+      endYear: ""
+    };
+    setEditedProfile(prev => ({
+      ...prev,
+      educationExperiences: [...prev.educationExperiences, newEdu]
+    }));
+  };
+
+  const handleRemoveEducation = (id: string) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      educationExperiences: prev.educationExperiences.filter(edu => edu.id !== id)
+    }));
+  };
+
+  const handleUpdateEducation = (id: string, field: keyof EducationExperience, value: string) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      educationExperiences: prev.educationExperiences.map(edu =>
+        edu.id === id ? { ...edu, [field]: value } : edu
+      )
+    }));
+  };
+
+  // Generate year options
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 50 }, (_, i) => currentYear - i).map(y => y.toString());
+
+  const flatTypeOptions = ["1 BHK", "2 BHK", "3 BHK", "4+ BHK"];
+  const roomTypeOptions = ["Private Room", "Shared Room", "Studio", "Entire Flat"];
+  const amenityOptions = ["WiFi", "Gym", "Parking", "Swimming Pool", "Balcony", "Kitchen", "Laundry", "Security", "Power Backup"];
+
+  const handleHousingPreferenceChange = (field: keyof HousingPreferences, value: string | string[]) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      housingPreferences: {
+        ...(prev.housingPreferences || {} as HousingPreferences),
+        [field]: value
+      } as HousingPreferences
+    }));
+  };
+
+  const handleFlatDetailChange = (field: keyof FlatDetails, value: string | string[]) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      flatDetails: {
+        ...(prev.flatDetails || {} as FlatDetails),
+        [field]: value
+      } as FlatDetails
+    }));
+  };
+
+  const toggleArrayItem = (array: string[], item: string): string[] => {
+    return array.includes(item) 
+      ? array.filter(i => i !== item)
+      : [...array, item];
   };
 
   const currentProfile = isEditMode ? editedProfile : profile;
@@ -484,23 +648,128 @@ export const ProfilePage = () => {
             {/* Work Experience Card */}
             <Card className="bg-white shadow-sm border border-gray-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-gray-900">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-gray-900">
                     <Briefcase className="w-5 h-5" />
                     Work Experience
-                </CardTitle>
+                  </CardTitle>
+                  {isEditMode && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddJobExperience}
+                      className="text-gray-700"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {profile.jobExperiences.map((exp, index) => (
+                {currentProfile.jobExperiences.map((exp, index) => (
                   <div key={exp.id} className="bg-pink-50 rounded-lg p-4 border border-pink-100">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-4">
                       <h4 className="text-sm font-medium text-gray-700">Experience #{index + 1}</h4>
+                      {isEditMode && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-gray-400 hover:text-red-500"
+                          onClick={() => handleRemoveJobExperience(exp.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    <p className="font-semibold text-gray-900 mb-1">
-                      {exp.position} at {exp.company}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {exp.fromYear} - {exp.currentlyWorking ? "Present" : exp.tillYear}
-                    </p>
+                    {isEditMode ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 text-sm">Company</Label>
+                          <Input
+                            value={exp.company}
+                            onChange={(e) => handleUpdateJobExperience(exp.id, "company", e.target.value)}
+                            className="bg-white border-gray-300"
+                            placeholder="Tech Corp"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 text-sm">Position</Label>
+                          <Input
+                            value={exp.position}
+                            onChange={(e) => handleUpdateJobExperience(exp.id, "position", e.target.value)}
+                            className="bg-white border-gray-300"
+                            placeholder="Software Engineer"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 text-sm">From Year</Label>
+                          <Select
+                            value={exp.fromYear}
+                            onValueChange={(value) => handleUpdateJobExperience(exp.id, "fromYear", value)}
+                          >
+                            <SelectTrigger className="bg-white border-gray-300">
+                              <SelectValue placeholder="Select year" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {years.map(year => (
+                                <SelectItem key={year} value={year}>{year}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 text-sm">Till Year</Label>
+                          {exp.currentlyWorking ? (
+                            <Input
+                              value="Currently Working"
+                              className="bg-green-50 border-green-200 text-green-700"
+                              readOnly
+                            />
+                          ) : (
+                            <Select
+                              value={exp.tillYear}
+                              onValueChange={(value) => handleUpdateJobExperience(exp.id, "tillYear", value)}
+                            >
+                              <SelectTrigger className="bg-white border-gray-300">
+                                <SelectValue placeholder="Select year" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {years.map(year => (
+                                  <SelectItem key={year} value={year}>{year}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                        <div className="md:col-span-2">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`currently-working-${exp.id}`}
+                              checked={exp.currentlyWorking}
+                              onCheckedChange={(checked) => {
+                                handleUpdateJobExperience(exp.id, "currentlyWorking", checked as boolean);
+                                if (checked) {
+                                  handleUpdateJobExperience(exp.id, "tillYear", "");
+                                }
+                              }}
+                            />
+                            <Label htmlFor={`currently-working-${exp.id}`} className="text-sm text-gray-700 cursor-pointer">
+                              Currently working here
+                            </Label>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-gray-900 mb-1">
+                          {exp.position} at {exp.company}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {exp.fromYear} - {exp.currentlyWorking ? "Present" : exp.tillYear}
+                        </p>
+                      </>
+                    )}
                   </div>
                 ))}
               </CardContent>
@@ -509,23 +778,103 @@ export const ProfilePage = () => {
             {/* Education Card */}
             <Card className="bg-white shadow-sm border border-gray-200">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-gray-900">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-gray-900">
                     <BookOpen className="w-5 h-5" />
                     Education
-                </CardTitle>
+                  </CardTitle>
+                  {isEditMode && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddEducation}
+                      className="text-gray-700"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {profile.educationExperiences.map((edu, index) => (
+                {currentProfile.educationExperiences.map((edu, index) => (
                   <div key={edu.id} className="bg-pink-50 rounded-lg p-4 border border-pink-100">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-4">
                       <h4 className="text-sm font-medium text-gray-700">Education #{index + 1}</h4>
+                      {isEditMode && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-gray-400 hover:text-red-500"
+                          onClick={() => handleRemoveEducation(edu.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    <p className="font-semibold text-gray-900 mb-1">
-                      {edu.degree}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {edu.institution} • {edu.startYear} - {edu.endYear}
-                    </p>
+                    {isEditMode ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 text-sm">Institution</Label>
+                          <Input
+                            value={edu.institution}
+                            onChange={(e) => handleUpdateEducation(edu.id, "institution", e.target.value)}
+                            className="bg-white border-gray-300"
+                            placeholder="IIT Mumbai"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 text-sm">Degree</Label>
+                          <Input
+                            value={edu.degree}
+                            onChange={(e) => handleUpdateEducation(edu.id, "degree", e.target.value)}
+                            className="bg-white border-gray-300"
+                            placeholder="B.Tech Computer Science"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 text-sm">Start Year</Label>
+                          <Select
+                            value={edu.startYear}
+                            onValueChange={(value) => handleUpdateEducation(edu.id, "startYear", value)}
+                          >
+                            <SelectTrigger className="bg-white border-gray-300">
+                              <SelectValue placeholder="Select year" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {years.map(year => (
+                                <SelectItem key={year} value={year}>{year}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="text-gray-700 text-sm">End Year</Label>
+                          <Select
+                            value={edu.endYear}
+                            onValueChange={(value) => handleUpdateEducation(edu.id, "endYear", value)}
+                          >
+                            <SelectTrigger className="bg-white border-gray-300">
+                              <SelectValue placeholder="Select year" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {years.map(year => (
+                                <SelectItem key={year} value={year}>{year}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-gray-900 mb-1">
+                          {edu.degree}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {edu.institution} • {edu.startYear} - {edu.endYear}
+                        </p>
+                      </>
+                    )}
                   </div>
                 ))}
               </CardContent>
@@ -545,51 +894,163 @@ export const ProfilePage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-gray-700">I'm looking for</Label>
-                    <Input value="Open To Both" className="bg-gray-50 border-gray-300" readOnly />
+                    {isEditMode ? (
+                      <Select
+                        value={currentProfile.housingPreferences?.lookingFor || ""}
+                        onValueChange={(value) => handleHousingPreferenceChange("lookingFor", value)}
+                      >
+                        <SelectTrigger className="bg-white border-gray-300">
+                          <SelectValue placeholder="Select option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Open To Both">Open To Both</SelectItem>
+                          <SelectItem value="Flat">Flat</SelectItem>
+                          <SelectItem value="Flatmate">Flatmate</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input value={currentProfile.housingPreferences?.lookingFor || "Open To Both"} className="bg-gray-50 border-gray-300" readOnly />
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-gray-700">Budget Range</Label>
-                    <Input value="₹15,000 - ₹30,000" className="bg-gray-50 border-gray-300" readOnly />
+                    {isEditMode ? (
+                      <Input
+                        value={currentProfile.housingPreferences?.budgetRange || ""}
+                        onChange={(e) => handleHousingPreferenceChange("budgetRange", e.target.value)}
+                        className="bg-white border-gray-300"
+                        placeholder="₹15,000 - ₹30,000"
+                      />
+                    ) : (
+                      <Input value={currentProfile.housingPreferences?.budgetRange || "₹15,000 - ₹30,000"} className="bg-gray-50 border-gray-300" readOnly />
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-gray-700">Moving Date</Label>
-                    <Input value="2/1/2024" className="bg-gray-50 border-gray-300" readOnly />
+                    {isEditMode ? (
+                      <Input
+                        type="date"
+                        value={currentProfile.housingPreferences?.movingDate || ""}
+                        onChange={(e) => handleHousingPreferenceChange("movingDate", e.target.value)}
+                        className="bg-white border-gray-300"
+                      />
+                    ) : (
+                      <Input value={currentProfile.housingPreferences?.movingDate || "2/1/2024"} className="bg-gray-50 border-gray-300" readOnly />
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-gray-700 flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
                       Preferred Location
                     </Label>
-                    <Input value="Andheri West, Mumbai" className="bg-gray-50 border-gray-300" readOnly />
+                    {isEditMode ? (
+                      <Input
+                        value={currentProfile.housingPreferences?.preferredLocation || ""}
+                        onChange={(e) => handleHousingPreferenceChange("preferredLocation", e.target.value)}
+                        className="bg-white border-gray-300"
+                        placeholder="Andheri West, Mumbai"
+                      />
+                    ) : (
+                      <Input value={currentProfile.housingPreferences?.preferredLocation || "Andheri West, Mumbai"} className="bg-gray-50 border-gray-300" readOnly />
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label className="text-gray-700">Search Radius</Label>
-                    <Input value="10 km" className="bg-gray-50 border-gray-300" readOnly />
+                    {isEditMode ? (
+                      <Input
+                        value={currentProfile.housingPreferences?.searchRadius || ""}
+                        onChange={(e) => handleHousingPreferenceChange("searchRadius", e.target.value)}
+                        className="bg-white border-gray-300"
+                        placeholder="10 km"
+                      />
+                    ) : (
+                      <Input value={currentProfile.housingPreferences?.searchRadius || "10 km"} className="bg-gray-50 border-gray-300" readOnly />
+                    )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-gray-700">Flat Type Preferences</Label>
                   <div className="flex flex-wrap gap-2">
-                    <Badge className="bg-pink-500 text-white">1 BHK</Badge>
-                    <Badge className="bg-pink-500 text-white">2 BHK</Badge>
+                    {flatTypeOptions.map((type) => {
+                      const isSelected = currentProfile.housingPreferences?.flatTypes?.includes(type) || false;
+                      return isEditMode ? (
+                        <Badge
+                          key={type}
+                          className={cn(
+                            "cursor-pointer",
+                            isSelected ? "bg-pink-500 text-white" : "bg-gray-100 text-gray-700 border-gray-300"
+                          )}
+                          onClick={() => {
+                            const current = currentProfile.housingPreferences?.flatTypes || [];
+                            handleHousingPreferenceChange("flatTypes", toggleArrayItem(current, type));
+                          }}
+                        >
+                          {type}
+                        </Badge>
+                      ) : (
+                        <Badge key={type} className={isSelected ? "bg-pink-500 text-white" : "bg-gray-100 text-gray-700 border-gray-300"}>
+                          {type}
+                        </Badge>
+                      );
+                    })}
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-gray-700">Room Type Preferences</Label>
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">Private Room</Badge>
-                    <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">Shared Room</Badge>
+                    {roomTypeOptions.map((type) => {
+                      const isSelected = currentProfile.housingPreferences?.roomTypes?.includes(type) || false;
+                      return isEditMode ? (
+                        <Badge
+                          key={type}
+                          variant="outline"
+                          className={cn(
+                            "cursor-pointer",
+                            isSelected ? "bg-pink-500 text-white border-pink-500" : "bg-gray-100 text-gray-700 border-gray-300"
+                          )}
+                          onClick={() => {
+                            const current = currentProfile.housingPreferences?.roomTypes || [];
+                            handleHousingPreferenceChange("roomTypes", toggleArrayItem(current, type));
+                          }}
+                        >
+                          {type}
+                        </Badge>
+                      ) : (
+                        <Badge key={type} variant="outline" className={isSelected ? "bg-pink-500 text-white border-pink-500" : "bg-gray-100 text-gray-700 border-gray-300"}>
+                          {type}
+                        </Badge>
+                      );
+                    })}
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-gray-700">Amenity Preferences</Label>
                   <div className="flex flex-wrap gap-2">
-                    <Badge className="bg-pink-500 text-white">WiFi</Badge>
-                    <Badge className="bg-pink-500 text-white">Gym</Badge>
-                    <Badge className="bg-pink-500 text-white">Parking</Badge>
+                    {amenityOptions.map((amenity) => {
+                      const isSelected = currentProfile.housingPreferences?.amenities?.includes(amenity) || false;
+                      return isEditMode ? (
+                        <Badge
+                          key={amenity}
+                          className={cn(
+                            "cursor-pointer",
+                            isSelected ? "bg-pink-500 text-white" : "bg-gray-100 text-gray-700 border-gray-300"
+                          )}
+                          onClick={() => {
+                            const current = currentProfile.housingPreferences?.amenities || [];
+                            handleHousingPreferenceChange("amenities", toggleArrayItem(current, amenity));
+                          }}
+                        >
+                          {amenity}
+                        </Badge>
+                      ) : (
+                        <Badge key={amenity} className={isSelected ? "bg-pink-500 text-white" : "bg-gray-100 text-gray-700 border-gray-300"}>
+                          {amenity}
+                        </Badge>
+                      );
+                    })}
                   </div>
                 </div>
               </CardContent>
@@ -608,62 +1069,216 @@ export const ProfilePage = () => {
                     <MapPin className="w-4 h-4" />
                     Flat Address
                   </Label>
-                  <Input 
-                    value="402, Sunshine Apartments, Lokhandwala Complex, Andheri West, Mumbai - 400053" 
-                    className="bg-gray-50 border-gray-300" 
-                    readOnly 
-                  />
+                  {isEditMode ? (
+                    <Input
+                      value={currentProfile.flatDetails?.address || ""}
+                      onChange={(e) => handleFlatDetailChange("address", e.target.value)}
+                      className="bg-white border-gray-300"
+                      placeholder="Enter flat address"
+                    />
+                  ) : (
+                    <Input 
+                      value={currentProfile.flatDetails?.address || "402, Sunshine Apartments, Lokhandwala Complex, Andheri West, Mumbai - 400053"} 
+                      className="bg-gray-50 border-gray-300" 
+                      readOnly 
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-gray-700">Description</Label>
-                  <Textarea 
-                    value="Spacious 3BHK apartment in a prime location with great connectivity. Looking for working professionals or students."
-                    className="bg-gray-50 border-gray-300 min-h-[80px]"
-                    readOnly
-                  />
+                  {isEditMode ? (
+                    <Textarea
+                      value={currentProfile.flatDetails?.description || ""}
+                      onChange={(e) => handleFlatDetailChange("description", e.target.value)}
+                      className="bg-white border-gray-300 min-h-[80px]"
+                      placeholder="Enter description"
+                    />
+                  ) : (
+                    <Textarea 
+                      value={currentProfile.flatDetails?.description || "Spacious 3BHK apartment in a prime location with great connectivity. Looking for working professionals or students."}
+                      className="bg-gray-50 border-gray-300 min-h-[80px]"
+                      readOnly
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label className="text-gray-700">Common Amenities</Label>
                   <div className="flex flex-wrap gap-2">
-                    <Badge className="bg-pink-100 text-pink-700 border-pink-200">WiFi</Badge>
-                    <Badge className="bg-pink-100 text-pink-700 border-pink-200">Parking</Badge>
-                    <Badge className="bg-pink-100 text-pink-700 border-pink-200">Gym</Badge>
+                    {amenityOptions.map((amenity) => {
+                      const isSelected = currentProfile.flatDetails?.commonAmenities?.includes(amenity) || false;
+                      return isEditMode ? (
+                        <Badge
+                          key={amenity}
+                          className={cn(
+                            "cursor-pointer",
+                            isSelected ? "bg-pink-100 text-pink-700 border-pink-200" : "bg-gray-100 text-gray-700 border-gray-300"
+                          )}
+                          onClick={() => {
+                            const current = currentProfile.flatDetails?.commonAmenities || [];
+                            handleFlatDetailChange("commonAmenities", toggleArrayItem(current, amenity));
+                          }}
+                        >
+                          {amenity}
+                        </Badge>
+                      ) : (
+                        <Badge key={amenity} className={isSelected ? "bg-pink-100 text-pink-700 border-pink-200" : "bg-gray-100 text-gray-700 border-gray-300"}>
+                          {amenity}
+                        </Badge>
+                      );
+                    })}
                   </div>
                 </div>
 
                 <div className="space-y-4">
                   <Label className="text-gray-700 font-semibold">Available Rooms</Label>
                   
-                  <div className="bg-pink-50 rounded-lg p-4 border border-pink-100">
-                    <h4 className="font-semibold text-gray-900 mb-2">Room #1 - Private Room</h4>
-                    <div className="space-y-1 text-sm text-gray-700">
-                      <p>Rent: ₹18,000/mo</p>
-                      <p>Deposit: ₹36,000</p>
-                      <p>Brokerage: No Brokerage</p>
-                      <p>Available: 2/15/2024</p>
-                      <p>Qty: 2</p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <Badge variant="outline" className="text-xs">AC</Badge>
-                        <Badge variant="outline" className="text-xs">Attached Bathroom</Badge>
-                      </div>
+                  {currentProfile.flatDetails?.rooms?.map((room, index) => (
+                    <div key={room.id} className="bg-pink-50 rounded-lg p-4 border border-pink-100">
+                      <h4 className="font-semibold text-gray-900 mb-2">Room #{index + 1} - {room.roomType}</h4>
+                      {isEditMode ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-gray-700 text-sm">Room Type</Label>
+                            <Select
+                              value={room.roomType}
+                              onValueChange={(value) => {
+                                const updatedRooms = currentProfile.flatDetails?.rooms?.map(r =>
+                                  r.id === room.id ? { ...r, roomType: value } : r
+                                ) || [];
+                                handleFlatDetailChange("rooms", updatedRooms);
+                              }}
+                            >
+                              <SelectTrigger className="bg-white border-gray-300">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Private Room">Private Room</SelectItem>
+                                <SelectItem value="Shared Room">Shared Room</SelectItem>
+                                <SelectItem value="Studio">Studio</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-gray-700 text-sm">Rent (₹/mo)</Label>
+                            <Input
+                              value={room.rent}
+                              onChange={(e) => {
+                                const updatedRooms = currentProfile.flatDetails?.rooms?.map(r =>
+                                  r.id === room.id ? { ...r, rent: e.target.value } : r
+                                ) || [];
+                                handleFlatDetailChange("rooms", updatedRooms);
+                              }}
+                              className="bg-white border-gray-300"
+                              placeholder="18000"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-gray-700 text-sm">Deposit (₹)</Label>
+                            <Input
+                              value={room.deposit}
+                              onChange={(e) => {
+                                const updatedRooms = currentProfile.flatDetails?.rooms?.map(r =>
+                                  r.id === room.id ? { ...r, deposit: e.target.value } : r
+                                ) || [];
+                                handleFlatDetailChange("rooms", updatedRooms);
+                              }}
+                              className="bg-white border-gray-300"
+                              placeholder="36000"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-gray-700 text-sm">Brokerage (₹)</Label>
+                            <Input
+                              value={room.brokerage}
+                              onChange={(e) => {
+                                const updatedRooms = currentProfile.flatDetails?.rooms?.map(r =>
+                                  r.id === room.id ? { ...r, brokerage: e.target.value } : r
+                                ) || [];
+                                handleFlatDetailChange("rooms", updatedRooms);
+                              }}
+                              className="bg-white border-gray-300"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-gray-700 text-sm">Available From</Label>
+                            <Input
+                              type="date"
+                              value={room.available}
+                              onChange={(e) => {
+                                const updatedRooms = currentProfile.flatDetails?.rooms?.map(r =>
+                                  r.id === room.id ? { ...r, available: e.target.value } : r
+                                ) || [];
+                                handleFlatDetailChange("rooms", updatedRooms);
+                              }}
+                              className="bg-white border-gray-300"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-gray-700 text-sm">Quantity</Label>
+                            <Input
+                              value={room.quantity}
+                              onChange={(e) => {
+                                const updatedRooms = currentProfile.flatDetails?.rooms?.map(r =>
+                                  r.id === room.id ? { ...r, quantity: e.target.value } : r
+                                ) || [];
+                                handleFlatDetailChange("rooms", updatedRooms);
+                              }}
+                              className="bg-white border-gray-300"
+                              placeholder="1"
+                            />
+                          </div>
+                          <div className="md:col-span-2 space-y-2">
+                            <Label className="text-gray-700 text-sm">Room Amenities</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {["AC", "Attached Bathroom", "Study Table", "Wardrobe", "Geyser"].map((amenity) => {
+                                const isSelected = room.amenities?.includes(amenity) || false;
+                                return (
+                                  <Badge
+                                    key={amenity}
+                                    variant="outline"
+                                    className={cn(
+                                      "cursor-pointer text-xs",
+                                      isSelected ? "bg-pink-100 border-pink-300" : "bg-white border-gray-300"
+                                    )}
+                                    onClick={() => {
+                                      const current = room.amenities || [];
+                                      const updatedAmenities = toggleArrayItem(current, amenity);
+                                      const updatedRooms = currentProfile.flatDetails?.rooms?.map(r =>
+                                        r.id === room.id ? { ...r, amenities: updatedAmenities } : r
+                                      ) || [];
+                                      handleFlatDetailChange("rooms", updatedRooms);
+                                    }}
+                                  >
+                                    {amenity}
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-1 text-sm text-gray-700">
+                          <p>Rent: ₹{parseInt(room.rent || "0").toLocaleString()}/mo</p>
+                          <p>Deposit: ₹{parseInt(room.deposit || "0").toLocaleString()}</p>
+                          <p>Brokerage: {room.brokerage === "0" ? "No Brokerage" : `₹${parseInt(room.brokerage || "0").toLocaleString()}`}</p>
+                          <p>Available: {room.available}</p>
+                          <p>Qty: {room.quantity}</p>
+                          {room.amenities && room.amenities.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {room.amenities.map((amenity) => (
+                                <Badge key={amenity} variant="outline" className="text-xs">
+                                  {amenity}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-
-                  <div className="bg-pink-50 rounded-lg p-4 border border-pink-100">
-                    <h4 className="font-semibold text-gray-900 mb-2">Room #2 - Shared Room</h4>
-                    <div className="space-y-1 text-sm text-gray-700">
-                      <p>Rent: ₹10,000/mo</p>
-                      <p>Deposit: ₹20,000</p>
-                      <p>Brokerage: ₹5,000</p>
-                      <p>Available: 2/1/2024</p>
-                      <p>Qty: 1</p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <Badge variant="outline" className="text-xs">AC</Badge>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
