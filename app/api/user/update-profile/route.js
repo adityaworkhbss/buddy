@@ -123,6 +123,13 @@ export async function PUT(req) {
                 }).filter(Boolean);
             }
 
+            // Extract lat/long from locationCoords array [lng, lat]
+            const latitude = housingDetails.locationCoords?.[1] ? parseFloat(housingDetails.locationCoords[1]) : null;
+            const longitude = housingDetails.locationCoords?.[0] ? parseFloat(housingDetails.locationCoords[0]) : null;
+
+            console.log("Received locationCoords:", housingDetails.locationCoords);
+            console.log("Extracted latitude:", latitude, "longitude:", longitude);
+
             const housingData = {
                 userId: user.id,
                 lookingFor: housingDetails.searchType || null,
@@ -131,8 +138,8 @@ export async function PUT(req) {
                 movingDate: housingDetails.movingDate ? new Date(housingDetails.movingDate) : null,
                 preferenceLocation: housingDetails.location || null,
                 searchRadius: housingDetails.radius ? parseInt(housingDetails.radius) : null,
-                latitude: housingDetails.locationCoords?.[1] ? parseFloat(housingDetails.locationCoords[1]) : null,
-                longitude: housingDetails.locationCoords?.[0] ? parseFloat(housingDetails.locationCoords[0]) : null,
+                latitude: latitude,
+                longitude: longitude,
                 roomType: housingDetails.roomType || null,
                 preferredAmenities: Array.isArray(housingDetails.amenityPreferences) ? housingDetails.amenityPreferences : [],
                 address: housingDetails.flatDetails?.address || null,
@@ -145,6 +152,8 @@ export async function PUT(req) {
                 description: housingDetails.flatDetails?.description || null,
                 photosVideos: photosVideos,
             };
+
+            console.log("Saving housing data to DB:", JSON.stringify({ ...housingData, photosVideos: photosVideos.length + " items" }, null, 2));
 
             await prisma.housingDetails.upsert({
                 where: { userId: user.id },

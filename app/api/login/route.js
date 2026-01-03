@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { adminAuth } from "../../../lib/firebaseAdmin";
 import { prisma } from "../../../lib/prisma";
-import { APP_CONFIG } from "../../../config/appConfigs";
+import { createSession, setSessionCookie } from "../../../lib/session";
 
 export async function POST(req) {
     try {
@@ -57,34 +56,22 @@ export async function POST(req) {
             );
         }
 
-        // Check if Firebase authentication is enabled
-        if (APP_CONFIG.USE_FIREBASE_AUTH) {
-            // Use Firebase for authentication
-            try {
-                const firebaseToken = await adminAuth.createCustomToken(user.uid);
-                return NextResponse.json({
-                    success: true,
-                    firebaseToken,
-                    userId: user.id,
-                    message: "Login successful"
-                });
-            } catch (firebaseError) {
-                console.error("Firebase authentication error:", firebaseError);
-                return NextResponse.json(
-                    { error: "Firebase authentication failed. Please try again." },
-                    { status: 500 }
-                );
-            }
-        } else {
-            // Use PostgreSQL database authentication (no Firebase token needed)
-            return NextResponse.json({
-                success: true,
-                userId: user.id,
-                uid: user.uid,
-                phone: user.phone,
-                message: "Login successful"
-            });
-        }
+        // Create session
+        const session = await createSession(user.id);
+        
+        // Create response
+        const response = NextResponse.json({
+            success: true,
+            userId: user.id,
+            uid: user.uid,
+            phone: user.phone,
+            message: "Login successful"
+        });
+
+        // Set session cookie
+        setSessionCookie(response, session.sessionToken, session.expiresAt);
+
+        return response;
     } catch (err) {
         console.error("Login error:", err);
         return NextResponse.json(

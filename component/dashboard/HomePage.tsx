@@ -1,13 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronUp, ChevronDown, SlidersHorizontal, Bookmark, MapPin, Home, X, ChevronLeft, ChevronRight, Send } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronLeft, ChevronRight, SlidersHorizontal, CalendarIcon, X } from "lucide-react";
 import { Button } from "@/component/ui/button";
-import { Input } from "@/component/ui/input";
-import { Textarea } from "@/component/ui/textarea";
-import { mockProfiles } from "@/data/mockProfiles";
-import { Badge } from "@/component/ui/badge";
-import { Dialog, DialogContent, DialogTitle, DialogClose } from "@/component/ui/dialog";
+import { ProfileCard } from "@/component/profile/ProfileCard";
+import { Card } from "@/component/ui/card";
 import { Label } from "@/component/ui/label";
 import { Slider } from "@/component/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/component/ui/select";
@@ -15,37 +12,61 @@ import { Checkbox } from "@/component/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/component/ui/popover";
 import { Calendar } from "@/component/ui/calendar";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/component/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+
+interface DiscoveredUser {
+  id: string;
+  name: string;
+  age: number | string;
+  city: string;
+  state: string;
+  profilePicture: string;
+  searchType: "flat" | "flatmate";
+  distance: number;
+  myHabits?: string[];
+  lookingForHabits?: string[];
+  jobExperiences?: any[];
+  educationExperiences?: any[];
+  flatDetails?: any;
+}
 
 export const HomePage = () => {
+  const [profiles, setProfiles] = useState<DiscoveredUser[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animationDirection, setAnimationDirection] = useState<"left" | "right" | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isInConversation, setIsInConversation] = useState<Record<string, boolean>>({});
-  const [message, setMessage] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+  const [searchRadius, setSearchRadius] = useState(10);
+  const [excludedUserIds, setExcludedUserIds] = useState<string[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [conversationStatus, setConversationStatus] = useState<Record<string, boolean>>({});
+  const { toast } = useToast();
   
-  const profile = mockProfiles[currentIndex];
-  const totalProfiles = mockProfiles.length;
-  const profileInConversation = isInConversation[profile?.id || ""] || false;
-  const currentMessage = message[profile?.id || ""] || `Hey! ${profile?.name}, I'm looking for a place and your listing looks great. Can we talk?`;
-
-  const handleNext = () => {
-    if (currentIndex < totalProfiles - 1) {
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
-  // Filter states
+  // Mock user search type - in real app, this would come from user profile
+  const [searchType] = useState<"Looking for Flat" | "Looking for Flatmate" | "Both">("Both");
+  
+  // Flatmate filters
   const [flatmateAgeRange, setFlatmateAgeRange] = useState([18, 50]);
   const [flatmateHabits, setFlatmateHabits] = useState<string[]>([]);
   const [flatmateMoveInDate, setFlatmateMoveInDate] = useState<Date>();
   
+  const habitsList = ["Early Riser", "Night Owl", "Non-Smoker", "Vegetarian", "Pet Friendly", "Party Lover", "Fitness Enthusiast"];
+  
+  const handleHabitToggle = (habit: string) => {
+    setFlatmateHabits(prev => 
+      prev.includes(habit) 
+        ? prev.filter(h => h !== habit)
+        : [...prev, habit]
+    );
+  };
+  
+  // Flat filters
   const [locationSearch, setLocationSearch] = useState<string>("");
   const [locationRange, setLocationRange] = useState([5]);
   const [priceRange, setPriceRange] = useState([0, 50000]);
@@ -56,20 +77,10 @@ export const HomePage = () => {
   const [securityDeposit, setSecurityDeposit] = useState<string>("");
   const [roomAmenities, setRoomAmenities] = useState<string[]>([]);
   const [commonAreaAmenities, setCommonAreaAmenities] = useState<string[]>([]);
-
-  const habitsListLeft = ["Early Riser", "Vegetarian", "Fitness Enthusiast"];
-  const habitsListRight = ["Night Owl", "Pet Friendly", "Non-Smoker", "Party Lover"];
-  const roomAmenitiesList = ["AC", "Bed", "Attached Bathroom", "Study Table", "Wardrobe", "Geyser"];
-  const commonAreaAmenitiesList = ["Wifi", "Parking", "Swimming Pool", "Balcony", "Kitchen", "Gym", "Laundry", "Security", "Power Backup"];
-
-  const handleHabitToggle = (habit: string) => {
-    setFlatmateHabits(prev => 
-      prev.includes(habit) 
-        ? prev.filter(h => h !== habit)
-        : [...prev, habit]
-    );
-  };
-
+  
+  const roomAmenitiesList = ["AC", "Attached Bathroom", "Wardrobe", "Bed", "Study Table", "Geyser"];
+  const commonAreaAmenitiesList = ["Wifi", "Parking", "Gym", "Swimming Pool", "Balcony", "Laundry", "Kitchen", "Security", "Power Backup"];
+  
   const handleRoomAmenityToggle = (amenity: string) => {
     setRoomAmenities(prev => 
       prev.includes(amenity) 
@@ -77,7 +88,7 @@ export const HomePage = () => {
         : [...prev, amenity]
     );
   };
-
+  
   const handleCommonAmenityToggle = (amenity: string) => {
     setCommonAreaAmenities(prev => 
       prev.includes(amenity) 
@@ -86,493 +97,601 @@ export const HomePage = () => {
     );
   };
 
-  const handleSendMessage = () => {
-    if (profile?.id && currentMessage.trim()) {
-      setIsInConversation(prev => ({
-        ...prev,
-        [profile.id]: true
-      }));
-      // Here you would typically make an API call to send the message
-      console.log("Sending message:", currentMessage);
+  // Get current user location and fetch initial users
+  useEffect(() => {
+    fetchUserLocationAndDiscover();
+  }, []);
+
+  // Check conversation status for all profiles
+  useEffect(() => {
+    if (currentUserId && profiles.length > 0) {
+      checkConversationStatus();
+    }
+  }, [currentUserId, profiles]);
+
+  // Load more users when we're running low
+  useEffect(() => {
+    if (profiles.length - currentIndex <= 2 && hasMore && !loadingMore) {
+      loadMoreUsers();
+    }
+  }, [currentIndex, profiles.length, hasMore]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") {
+        handleNext();
+      } else if (e.key === "ArrowLeft") {
+        handlePrevious();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [currentIndex, isAnimating]);
+
+  const fetchUserLocationAndDiscover = async () => {
+    try {
+      setLoading(true);
+      
+      const meResponse = await fetch("/api/user/me");
+      const meData = await meResponse.json();
+      
+      if (!meData.success) {
+        throw new Error("Failed to get user information");
+      }
+
+      const profileResponse = await fetch(`/api/user/profile?userId=${meData.user.id}`);
+      const profileData = await profileResponse.json();
+
+      if (profileData.success && profileData.profile?.housingDetails) {
+        setCurrentUserId(meData.user.id);
+        const housing = profileData.profile.housingDetails;
+        if (housing.latitude && housing.longitude) {
+          setUserLocation({ lat: housing.latitude, lon: housing.longitude });
+          const userSearchRadius = housing.searchRadius || 10;
+          setSearchRadius(userSearchRadius);
+          await discoverUsers(housing.latitude, housing.longitude, userSearchRadius, 0);
+        } else {
+          toast({
+            title: "Location Required",
+            description: "Please update your profile location to discover users nearby.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Location Required",
+          description: "Please update your profile location to discover users nearby.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching user location:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load users. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleMessageChange = (value: string) => {
-    if (profile?.id) {
-      setMessage(prev => ({
-        ...prev,
-        [profile.id]: value
-      }));
+  const discoverUsers = async (lat: number, lon: number, radius: number, offset: number) => {
+    try {
+      const params = new URLSearchParams({
+        latitude: lat.toString(),
+        longitude: lon.toString(),
+        radius: radius.toString(),
+        limit: "3",
+        offset: offset.toString(),
+        excludeIds: excludedUserIds.join(","),
+      });
+
+      const response = await fetch(`/api/users/discover?${params}`);
+      const data = await response.json();
+
+      if (data.success) {
+        if (offset === 0) {
+          setProfiles(data.users);
+          setCurrentIndex(0);
+        } else {
+          setProfiles(prev => [...prev, ...data.users]);
+        }
+        setHasMore(data.hasMore);
+        setExcludedUserIds(prev => [...prev, ...data.users.map((u: DiscoveredUser) => u.id)]);
+      } else {
+        throw new Error(data.message || "Failed to discover users");
+      }
+    } catch (error) {
+      console.error("Error discovering users:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load users. Please try again.",
+        variant: "destructive",
+      });
     }
   };
+
+  const loadMoreUsers = async () => {
+    if (!userLocation || loadingMore || !hasMore) return;
+
+    try {
+      setLoadingMore(true);
+      await discoverUsers(userLocation.lat, userLocation.lon, searchRadius, profiles.length);
+    } catch (error) {
+      console.error("Error loading more users:", error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const checkConversationStatus = async () => {
+    if (!currentUserId) return;
+
+    try {
+      const conversationsResponse = await fetch(`/api/messages/conversations?userId=${currentUserId}`);
+      const conversationsData = await conversationsResponse.json();
+
+      if (conversationsData.success) {
+        const statusMap: Record<string, boolean> = {};
+        conversationsData.conversations.forEach((conv: any) => {
+          statusMap[conv.otherUserId.toString()] = true;
+        });
+        setConversationStatus(statusMap);
+      }
+    } catch (error) {
+      console.error("Error checking conversation status:", error);
+    }
+  };
+
+  const handleNext = () => {
+    if (isAnimating || currentIndex >= profiles.length - 1) return;
+    setIsAnimating(true);
+    setAnimationDirection("left");
+    setTimeout(() => {
+      setCurrentIndex((prev) => prev + 1);
+      setIsAnimating(false);
+      setAnimationDirection(null);
+    }, 300);
+  };
+
+  const handlePrevious = () => {
+    if (isAnimating || currentIndex <= 0) return;
+    setIsAnimating(true);
+    setAnimationDirection("right");
+    setTimeout(() => {
+      setCurrentIndex((prev) => prev - 1);
+      setIsAnimating(false);
+      setAnimationDirection(null);
+    }, 300);
+  };
+
+  const handleApplyFilters = async () => {
+    setIsFilterOpen(false);
+    if (userLocation) {
+      setLoading(true);
+      setProfiles([]);
+      setCurrentIndex(0);
+      setExcludedUserIds([]);
+      
+      // Save search radius to user profile
+      try {
+        const meResponse = await fetch("/api/user/me");
+        const meData = await meResponse.json();
+        if (meData.success && meData.user) {
+          const profileResponse = await fetch(`/api/user/profile?userId=${meData.user.id}`);
+          const profileData = await profileResponse.json();
+          
+          if (profileData.success && profileData.profile?.housingDetails) {
+            const housing = profileData.profile.housingDetails;
+            const formData = new FormData();
+            formData.append("phone", meData.user.phone);
+            formData.append("personalInfo", JSON.stringify({}));
+            formData.append("housingDetails", JSON.stringify({
+              searchType: housing.lookingFor || "Open To Both",
+              location: housing.preferenceLocation || "",
+              locationCoords: housing.latitude && housing.longitude 
+                ? [housing.longitude, housing.latitude] 
+                : null,
+              radius: searchRadius,
+              budget: housing.budgetMin && housing.budgetMax 
+                ? [housing.budgetMin, housing.budgetMax] 
+                : [10000, 25000],
+              movingDate: housing.movingDate || "",
+              roomType: housing.roomType || "",
+              amenityPreferences: housing.preferredAmenities || [],
+              flatDetails: {},
+            }));
+            
+            await fetch("/api/user/update-profile", {
+              method: "PUT",
+              body: formData,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error saving search radius:", error);
+      }
+      
+      await discoverUsers(userLocation.lat, userLocation.lon, searchRadius, 0);
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#f6f2ff]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading users nearby...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userLocation) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#f6f2ff]">
+        <div className="text-center max-w-md mx-auto p-8 bg-white rounded-lg shadow-md">
+          <p className="text-gray-600 mb-4">
+            Please update your profile location to discover users nearby.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (profiles.length === 0) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#f6f2ff]">
+        <div className="text-center max-w-md mx-auto p-8 bg-white rounded-lg shadow-md">
+          <p className="text-gray-600 mb-4">
+            No users found within {searchRadius}km radius. Try increasing the search radius.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const currentProfile = profiles[currentIndex];
 
   return (
-    <div className="w-full h-screen flex flex-col bg-white relative overflow-hidden">
-      {/* Filters Button - Top Left */}
+    <div className="h-screen flex flex-col relative bg-[#f6f2ff]">
+      {/* Floating Filter Button */}
       <Button
         onClick={() => setIsFilterOpen(true)}
-        className="absolute top-4 left-4 z-20 bg-pink-500 hover:bg-pink-600 text-white shadow-lg"
-        size="lg"
+        className="absolute top-4 left-4 z-20 shadow-lg bg-pink-500 hover:bg-pink-600 text-white"
+        variant="default"
       >
-        <SlidersHorizontal className="w-5 h-5 mr-2" />
+        <SlidersHorizontal className="w-4 h-4 mr-2" />
         Filters
       </Button>
 
-      {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto pt-16 pb-20 px-8">
-        {/* Profile Section */}
-        <div className="max-w-4xl mx-auto space-y-6">
-          {/* Profile Header Card */}
-          <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-            <div className="flex items-start gap-6">
-              {/* Profile Picture */}
-              <div className="flex-shrink-0">
-                <img
-                  src={profile?.profilePicture || "https://randomuser.me/api/portraits/women/44.jpg"}
-                  alt={profile?.name}
-                  className="w-24 h-24 rounded-full object-cover border-2 border-pink-200"
-                />
-              </div>
-
-              {/* Profile Info */}
-              <div className="flex-1">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">{profile?.name}</h1>
-                    <p className="text-gray-600 text-lg">
-                      {profile?.city}, {profile?.state}
-                    </p>
-                    <p className="text-gray-600 text-lg">
-                      {profile?.age} years old
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-900">
-                      <Bookmark className="w-5 h-5" />
-                    </Button>
-                    <Badge className="bg-pink-500 text-white px-4 py-2 text-sm">
-                      {profile?.searchType === "flatmate" ? "Has Flat" : "Looking for Flat"}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Message Section or Conversation Status */}
-          {profileInConversation ? (
-            <div className="bg-gray-100 rounded-lg p-4 text-center">
-              <p className="text-gray-700 text-sm">
-                You are in conversation with {profile?.name}
-              </p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 space-y-4">
-              <Textarea
-                placeholder={`Hey! ${profile?.name}, I'm looking for a place and your listing looks great. Can we talk?`}
-                value={currentMessage}
-                onChange={(e) => handleMessageChange(e.target.value)}
-                className="min-h-[100px] resize-none border-gray-300"
-              />
-              <Button
-                onClick={handleSendMessage}
-                className="w-full bg-pink-500 hover:bg-pink-600 text-white"
-                size="lg"
-              >
-                <Send className="w-5 h-5 mr-2" />
-                Send Message
-              </Button>
-            </div>
-          )}
-
-          {/* Flat Details Section */}
-          {profile?.flatDetails && (
-            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-              <div className="flex items-center gap-2 mb-4">
-                <Home className="w-5 h-5 text-gray-700" />
-                <h2 className="text-xl font-semibold text-gray-900">Flat Details</h2>
-              </div>
-
-              <div className="space-y-4">
-                {/* Address */}
-                <div className="flex items-start gap-2">
-                  <MapPin className="w-5 h-5 text-gray-500 mt-0.5" />
-                  <p className="text-gray-700">{profile.flatDetails.address}</p>
-                </div>
-
-                {/* Furnishing */}
-                <div>
-                  <p className="text-gray-700">
-                    <span className="font-medium">Furnishing:</span> {profile.flatDetails.furnishing}
-                  </p>
-                </div>
-
-                {/* Map View Placeholder */}
-                <div className="mt-4 h-64 bg-gray-200 rounded-lg flex items-center justify-center border border-gray-300">
-                  <p className="text-gray-500 text-sm">Map View</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Available Rooms Section */}
-          {profile?.flatDetails?.rooms && profile.flatDetails.rooms.length > 0 && (
-            <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Available Rooms</h2>
-              <div className="space-y-4">
-                {profile.flatDetails.rooms.map((room: any) => (
-                  <div key={room.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-medium text-gray-900">
-                        {room.roomType === "private" ? "Private Room" : "Shared Room"}
-                      </h3>
-                      <p className="text-gray-600">₹{parseInt(room.rent).toLocaleString()}/month</p>
-                    </div>
-                    <div className="text-sm text-gray-600 space-y-1">
-                      <p>Security Deposit: ₹{parseInt(room.securityDeposit).toLocaleString()}</p>
-                      <p>Available from: {format(new Date(room.availableFrom), "MMM d, yyyy")}</p>
-                      {room.amenities && room.amenities.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          {room.amenities.map((amenity: string) => (
-                            <Badge key={amenity} variant="outline" className="text-xs">
-                              {amenity}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Left Arrow Button */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-10 w-10 rounded-full bg-white border-gray-300 shadow-sm hover:bg-gray-50"
-          onClick={handlePrevious}
-          disabled={currentIndex === 0}
-        >
-          <ChevronLeft className="h-5 w-5 text-gray-600" />
-        </Button>
-      </div>
-
-      {/* Right Arrow Button */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2">
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-10 w-10 rounded-full bg-white border-gray-300 shadow-sm hover:bg-gray-50"
-          onClick={handleNext}
-          disabled={currentIndex >= totalProfiles - 1}
-        >
-          <ChevronRight className="h-5 w-5 text-gray-600" />
-        </Button>
-      </div>
-
-      {/* Page Indicator - Bottom Center */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-        <div className="bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200">
-          <span className="text-sm text-gray-600">
-            {currentIndex + 1} / {totalProfiles}
-          </span>
-        </div>
-      </div>
-
       {/* Filter Dialog */}
       <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-        <DialogContent className="bg-pink-50 max-w-4xl max-h-[90vh] overflow-y-auto [&>button]:hidden">
-          {/* Light Pink Header */}
-          <div className="bg-pink-50 px-6 py-4 flex items-center justify-between border-b border-pink-100">
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal className="w-5 h-5 text-gray-700" />
-              <DialogTitle className="text-xl font-bold text-gray-900">Filters</DialogTitle>
-            </div>
-            <div className="flex items-center gap-3 ">
-              <DialogClose asChild>
-                <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-900">
-                  <X className="w-5 h-5" />
-                </Button>
-              </DialogClose>
-              <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-900">
-                <Bookmark className="w-5 h-5" />
-              </Button>
-              <Button className="bg-pink-500 hover:bg-pink-600 text-white">
-                Flat
-              </Button>
-            </div>
-          </div>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <SlidersHorizontal className="w-5 h-5" />
+              Filters
+            </DialogTitle>
+          </DialogHeader>
           
-          <div className="mx-6 py-6">
-            {/* Looking for Flatmate Section */}
-            <div className="space-y-4 p-6 bg-white space-y-6 rounded-lg">
-              <h3 className="font-semibold text-gray-900 text-lg">Looking for Flatmate</h3>
-              
-              {/* Age Range */}
-              <div className="space-y-4">
-                <Label className="text-gray-700">Age Range: {flatmateAgeRange[0]} - {flatmateAgeRange[1]}</Label>
-                <Slider
-                  value={flatmateAgeRange}
-                  onValueChange={setFlatmateAgeRange}
-                  min={18}
-                  max={70}
-                  step={1}
-                  className="[&_[role=slider]]:bg-pink-500 [&>span>span]:bg-pink-500 pt-5"
-                />
-              </div>
-
-              {/* Flatmate Habits */}
-              <div className="space-y-2">
-                <Label className="text-gray-700 font-semibold">Flatmate Habits</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Left Column */}
-                  <div className="space-y-3">
-                    {habitsListLeft.map((habit) => (
-                      <div key={habit} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`habit-${habit}`}
-                          checked={flatmateHabits.includes(habit)}
-                          onCheckedChange={() => handleHabitToggle(habit)}
-                        />
-                        <Label htmlFor={`habit-${habit}`} className="text-sm font-normal text-gray-700 cursor-pointer">
-                          {habit}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Right Column */}
-                  <div className="space-y-3">
-                    {habitsListRight.map((habit) => (
-                      <div key={habit} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`habit-${habit}`}
-                          checked={flatmateHabits.includes(habit)}
-                          onCheckedChange={() => handleHabitToggle(habit)}
-                        />
-                        <Label htmlFor={`habit-${habit}`} className="text-sm font-normal text-gray-700 cursor-pointer">
-                          {habit}
-                        </Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Move-in Date */}
-              <div className="space-y-2">
-                <Label className="text-gray-700 font-semibold">Move-in Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal bg-pink-50 border-pink-200 hover:bg-pink-100",
-                        !flatmateMoveInDate && "text-gray-500"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {flatmateMoveInDate ? format(flatmateMoveInDate, "PPP") : "Select move-in date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={flatmateMoveInDate}
-                      onSelect={setFlatmateMoveInDate}
-                      initialFocus
+          <div className="space-y-4 mt-4">
+            {/* Looking for Flatmate Filters */}
+            {(searchType === "Looking for Flatmate" || searchType === "Both") && (
+              <Card className="p-4">
+                <h3 className="font-medium mb-3">Looking for Flatmate</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Age Range: {flatmateAgeRange[0]} - {flatmateAgeRange[1]}</Label>
+                    <Slider
+                      value={flatmateAgeRange}
+                      onValueChange={setFlatmateAgeRange}
+                      min={18}
+                      max={70}
+                      step={1}
                     />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-
-            {/* Looking for Flat Section */}
-            <div className=" bg-white space-y-6 mt-6 rounded-lg  p-6">
-              <h3 className="font-semibold text-gray-900 text-lg">Looking for Flat</h3>
-              
-              {/* Search Range */}
-              <div className="space-y-2">
-                <Label className="text-gray-700">Search Range: {locationRange[0]} km</Label>
-                <Slider
-                  value={locationRange}
-                  onValueChange={setLocationRange}
-                  min={1}
-                  max={50}
-                  step={1}
-                  className="[&_[role=slider]]:bg-pink-500 [&>span>span]:bg-pink-500"
-                />
-              </div>
-
-              {/* Flat Type, Room Type, Available From - 3 columns */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-gray-700">Flat Type</Label>
-                  <Select value={flatType} onValueChange={setFlatType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select flat type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1bhk">1 BHK</SelectItem>
-                      <SelectItem value="2bhk">2 BHK</SelectItem>
-                      <SelectItem value="3bhk">3 BHK</SelectItem>
-                      <SelectItem value="4bhk+">4+ BHK</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-gray-700">Room Type</Label>
-                  <Select value={roomType} onValueChange={setRoomType}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select room type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="private">Private</SelectItem>
-                      <SelectItem value="shared">Shared</SelectItem>
-                      <SelectItem value="studio">Studio</SelectItem>
-                      <SelectItem value="entire">Entire Flat</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-gray-700">Available From</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button 
-                        variant="outline" 
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !availableFrom && "text-gray-500"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {availableFrom ? format(availableFrom, "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar 
-                        mode="single" 
-                        selected={availableFrom} 
-                        onSelect={setAvailableFrom} 
-                        initialFocus 
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-              </div>
-
-              {/* Price Range */}
-              <div className="space-y-2">
-                <Label className="text-gray-700">Price Range: ₹{priceRange[0]} - ₹{priceRange[1]}</Label>
-                <Slider
-                  value={priceRange}
-                  onValueChange={setPriceRange}
-                  min={0}
-                  max={100000}
-                  step={1000}
-                  className="[&_[role=slider]]:bg-pink-500 [&>span>span]:bg-pink-500"
-                />
-              </div>
-
-              {/* Brokerage & Security Deposit - 2 columns */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-gray-700">Brokerage</Label>
-                  <Select value={brokerage} onValueChange={setBrokerage}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select preference" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="no">No Brokerage</SelectItem>
-                      <SelectItem value="yes">Brokerage</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-gray-700">Security Deposit</Label>
-                  <Select value={securityDeposit} onValueChange={setSecurityDeposit}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select preference" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No Deposit</SelectItem>
-                      <SelectItem value="1month">1 Month</SelectItem>
-                      <SelectItem value="2months">2 Months</SelectItem>
-                      <SelectItem value="3months">3+ Months</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Room Amenities */}
-              <div className="space-y-2">
-                <Label className="text-gray-700">Room Amenities</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  {roomAmenitiesList.map((amenity) => (
-                    <div key={amenity} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`room-amenity-${amenity}`}
-                        checked={roomAmenities.includes(amenity)}
-                        onCheckedChange={() => handleRoomAmenityToggle(amenity)}
-                      />
-                      <Label htmlFor={`room-amenity-${amenity}`} className="text-sm font-normal text-gray-700 cursor-pointer">
-                        {amenity}
-                      </Label>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Flatmate Habits</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {habitsList.map((habit) => (
+                        <div key={habit} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`habit-${habit}`}
+                            checked={flatmateHabits.includes(habit)}
+                            onCheckedChange={() => handleHabitToggle(habit)}
+                          />
+                          <Label htmlFor={`habit-${habit}`} className="text-sm font-normal">{habit}</Label>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Move-in Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !flatmateMoveInDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {flatmateMoveInDate ? format(flatmateMoveInDate, "PPP") : <span>Select move-in date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={flatmateMoveInDate}
+                          onSelect={setFlatmateMoveInDate}
+                          initialFocus
+                          className={cn("p-3 pointer-events-auto")}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
-              </div>
-
-              {/* Common Area Amenities */}
-              <div className="space-y-2">
-                <Label className="text-gray-700">Common Area Amenities</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  {commonAreaAmenitiesList.map((amenity) => (
-                    <div key={amenity} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`common-amenity-${amenity}`}
-                        checked={commonAreaAmenities.includes(amenity)}
-                        onCheckedChange={() => handleCommonAmenityToggle(amenity)}
-                      />
-                      <Label htmlFor={`common-amenity-${amenity}`} className="text-sm font-normal text-gray-700 cursor-pointer">
-                        {amenity}
-                      </Label>
+              </Card>
+            )}
+            
+            {/* Looking for Flat Filters */}
+            {(searchType === "Looking for Flat" || searchType === "Both") && (
+              <Card className="p-4">
+                <h3 className="font-medium mb-3">Looking for Flat</h3>
+                <div className="space-y-4">
+                  {/* Location Search + Map */}
+                  <div className="space-y-2">
+                    <Label>Location</Label>
+                    <input
+                      type="text"
+                      placeholder="Search location..."
+                      value={locationSearch}
+                      onChange={(e) => setLocationSearch(e.target.value)}
+                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                    />
+                    <div className="h-40 bg-muted rounded-md flex items-center justify-center text-muted-foreground text-sm">
+                      Map Preview (Mapbox integration pending)
                     </div>
-                  ))}
+                  </div>
+                  
+                  {/* Range Selection */}
+                  <div className="space-y-2">
+                    <Label>Search Radius: {searchRadius} km</Label>
+                    <Slider
+                      value={[searchRadius]}
+                      onValueChange={(value) => setSearchRadius(value[0])}
+                      min={1}
+                      max={50}
+                      step={1}
+                    />
+                  </div>
+                  
+                  {/* Flat Type, Room Type, Available From - Side by Side */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Flat Type</Label>
+                      <Select value={flatType} onValueChange={setFlatType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select flat type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1bhk">1 BHK</SelectItem>
+                          <SelectItem value="2bhk">2 BHK</SelectItem>
+                          <SelectItem value="3bhk">3 BHK</SelectItem>
+                          <SelectItem value="4bhk+">4+ BHK</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Room Type</Label>
+                      <Select value={roomType} onValueChange={setRoomType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select room type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="private">Private</SelectItem>
+                          <SelectItem value="shared">Shared</SelectItem>
+                          <SelectItem value="studio">Studio</SelectItem>
+                          <SelectItem value="entire">Entire Flat</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Available From</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !availableFrom && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {availableFrom ? format(availableFrom, "PPP") : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar mode="single" selected={availableFrom} onSelect={setAvailableFrom} initialFocus className="pointer-events-auto" />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  
+                  {/* Price Range - Full Width */}
+                  <div className="space-y-2">
+                    <Label>Price Range: ₹{priceRange[0]} - ₹{priceRange[1]}</Label>
+                    <Slider
+                      value={priceRange}
+                      onValueChange={setPriceRange}
+                      min={0}
+                      max={100000}
+                      step={1000}
+                    />
+                  </div>
+                  
+                  {/* Brokerage & Security Deposit */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Brokerage</Label>
+                      <Select value={brokerage} onValueChange={setBrokerage}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select preference" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="no">No Brokerage</SelectItem>
+                          <SelectItem value="yes">Brokerage</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Security Deposit</Label>
+                      <Select value={securityDeposit} onValueChange={setSecurityDeposit}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select preference" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Deposit</SelectItem>
+                          <SelectItem value="1month">1 Month</SelectItem>
+                          <SelectItem value="2months">2 Months</SelectItem>
+                          <SelectItem value="3months">3+ Months</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  
+                  {/* Room Amenities - 3 columns */}
+                  <div className="space-y-2">
+                    <Label>Room Amenities</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {roomAmenitiesList.map((amenity) => (
+                        <div key={amenity} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`room-amenity-${amenity}`}
+                            checked={roomAmenities.includes(amenity)}
+                            onCheckedChange={() => handleRoomAmenityToggle(amenity)}
+                          />
+                          <Label htmlFor={`room-amenity-${amenity}`} className="text-sm font-normal">{amenity}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {/* Common Area Amenities - 3 columns */}
+                  <div className="space-y-2">
+                    <Label>Common Area Amenities</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {commonAreaAmenitiesList.map((amenity) => (
+                        <div key={amenity} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`common-amenity-${amenity}`}
+                            checked={commonAreaAmenities.includes(amenity)}
+                            onCheckedChange={() => handleCommonAmenityToggle(amenity)}
+                          />
+                          <Label htmlFor={`common-amenity-${amenity}`} className="text-sm font-normal">{amenity}</Label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Action Buttons */}
-          <div className="space-y-2">
-            <div className="px-6 py-4 flex justify-end gap-x-6">
-              <Button
-                  variant="outline"
-                  onClick={() => setIsFilterOpen(false)}
-                  className="text-gray-700 bg-white border-gray-300"
-              >
+              </Card>
+            )}
+            
+            {/* Apply Filters Button */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setIsFilterOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                  onClick={() => setIsFilterOpen(false)}
-                  className="bg-pink-500 hover:bg-pink-600 text-white"
-              >
+              <Button onClick={handleApplyFilters} className="bg-pink-500 hover:bg-pink-600 text-white">
                 Apply Filters
               </Button>
             </div>
           </div>
-
         </DialogContent>
       </Dialog>
+
+      {/* Profile Cards Section */}
+      <div className="flex-1 flex items-center relative">
+        {/* Left Navigation Button */}
+        <div className="flex-shrink-0 w-12 flex items-center justify-center">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-12 w-12 rounded-full shadow-lg"
+            onClick={handlePrevious}
+            disabled={currentIndex === 0 || isAnimating}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+        </div>
+
+        {/* Profile Card - Stretched to fill space */}
+        <div className="flex-1 h-full flex items-center justify-center py-8 px-2">
+          {currentProfile && (
+            <div
+              className={
+                animationDirection === "left"
+                  ? "animate-slide-out-left w-full"
+                  : animationDirection === "right"
+                  ? "animate-slide-out-right w-full"
+                  : "animate-slide-in w-full"
+              }
+            >
+              <ProfileCard 
+                profile={{
+                  id: currentProfile.id,
+                  name: currentProfile.name,
+                  age: currentProfile.age,
+                  city: currentProfile.city,
+                  state: currentProfile.state,
+                  profilePicture: currentProfile.profilePicture,
+                  searchType: currentProfile.searchType as "flat" | "flatmate",
+                  myHabits: currentProfile.myHabits || [],
+                  lookingForHabits: currentProfile.lookingForHabits || [],
+                  jobExperiences: currentProfile.jobExperiences || [],
+                  educationExperiences: currentProfile.educationExperiences || [],
+                  flatDetails: currentProfile.flatDetails,
+                }}
+                distance={currentProfile.distance}
+                alreadyInConversation={conversationStatus[currentProfile.id] || false}
+                onSaveProfile={(profileId, saved) => {
+                  // Update conversation status when message is sent
+                  if (saved) {
+                    setConversationStatus(prev => ({
+                      ...prev,
+                      [profileId]: true
+                    }));
+                  }
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Right Navigation Button */}
+        <div className="flex-shrink-0 w-12 flex items-center justify-center">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-12 w-12 rounded-full shadow-lg"
+            onClick={handleNext}
+            disabled={currentIndex >= profiles.length - 1 || isAnimating}
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
+        </div>
+
+        {/* Profile Counter */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-sm text-muted-foreground bg-white px-4 py-2 rounded-full shadow-lg border">
+          {currentIndex + 1} / {profiles.length}
+          {hasMore && " +"}
+        </div>
+      </div>
     </div>
   );
 };

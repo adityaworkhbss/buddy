@@ -28,7 +28,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <div id="recaptcha-container"></div>
         {children}
       </body>
     </html>

@@ -287,14 +287,12 @@ export default function EditProfile({ onSave }) {
         try {
             const result = await OTP.verifyOtp(confirmationResult, otpDigits);
 
-            if (!OTP.isFirebase) {
-                if (!result || result.success === false || !result.success) {
-                    const errorMessage = result?.message || result?.error || "Invalid OTP. Please check and try again.";
-                    setOtpError(errorMessage);
-                    setOtp("");
-                    setVerifying(false);
-                    return;
-                }
+            if (!result || result.success === false || !result.success) {
+                const errorMessage = result?.message || result?.error || "Invalid OTP. Please check and try again.";
+                setOtpError(errorMessage);
+                setOtp("");
+                setVerifying(false);
+                return;
             }
 
             // OTP verified, now change phone number

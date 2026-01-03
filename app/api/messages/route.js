@@ -67,30 +67,49 @@ export async function POST(req) {
         const fileSize = formData.get("fileSize");
         const fileType = formData.get("fileType");
 
-        if (!conversationId || !senderId || !receiverId) {
+        if (!senderId || !receiverId) {
             return NextResponse.json(
-                { success: false, message: "Conversation ID, sender ID, and receiver ID are required" },
+                { success: false, message: "Sender ID and receiver ID are required" },
                 { status: 400 }
             );
         }
 
-        // Create or update conversation
-        const conversation = await prisma.conversation.upsert({
-            where: {
-                user1Id_user2Id: {
+        // Create or update conversation (conversationId is optional)
+        let conversation;
+        if (conversationId) {
+            conversation = await prisma.conversation.findUnique({
+                where: { id: parseInt(conversationId) },
+            });
+            if (!conversation) {
+                return NextResponse.json(
+                    { success: false, message: "Conversation not found" },
+                    { status: 404 }
+                );
+            }
+            // Update last message time
+            await prisma.conversation.update({
+                where: { id: conversation.id },
+                data: { lastMessageAt: new Date() },
+            });
+        } else {
+            // Create or get existing conversation
+            conversation = await prisma.conversation.upsert({
+                where: {
+                    user1Id_user2Id: {
+                        user1Id: Math.min(parseInt(senderId), parseInt(receiverId)),
+                        user2Id: Math.max(parseInt(senderId), parseInt(receiverId)),
+                    },
+                },
+                update: {
+                    lastMessageAt: new Date(),
+                },
+                create: {
                     user1Id: Math.min(parseInt(senderId), parseInt(receiverId)),
                     user2Id: Math.max(parseInt(senderId), parseInt(receiverId)),
+                    lastMessageAt: new Date(),
                 },
-            },
-            update: {
-                lastMessageAt: new Date(),
-            },
-            create: {
-                user1Id: Math.min(parseInt(senderId), parseInt(receiverId)),
-                user2Id: Math.max(parseInt(senderId), parseInt(receiverId)),
-                lastMessageAt: new Date(),
-            },
-        });
+            });
+        }
 
         // Create message
         const message = await prisma.message.create({

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { adminAuth } from "../../../lib/firebaseAdmin";
 import { prisma } from "../../../lib/prisma";
+import { createSession, setSessionCookie } from "../../../lib/session";
 
 export async function POST(req) {
     try {
@@ -39,7 +39,6 @@ export async function POST(req) {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Generate unique UID (using timestamp and phone number)
-        // This UID will be used for Firebase custom token generation
         const uid = `user_${Date.now()}_${phone.replace(/\D/g, "")}`;
         
         // Create user in database
@@ -54,15 +53,24 @@ export async function POST(req) {
 
         console.log("User created successfully:", { userId: user.id, phone: user.phone });
 
-        return NextResponse.json({
+        // Create session for the new user
+        const session = await createSession(user.id);
+        
+        // Create response
+        const response = NextResponse.json({
             success: true,
             message: "User created successfully",
             user: {
                 userId: user.id, // Primary key - required
                 uid: user.uid,
                 phone: user.phone,
-            },
+            }
         });
+
+        // Set session cookie
+        setSessionCookie(response, session.sessionToken, session.expiresAt);
+
+        return response;
     } catch (err) {
         console.error("Error creating user:", err);
         

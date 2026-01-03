@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Filter, Send, ChevronDown, MoreVertical, Smile, Paperclip } from "lucide-react";
 import { Input } from "@/component/ui/input";
@@ -9,134 +9,255 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/component/ui/avatar";
 import { ScrollArea } from "@/component/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/component/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { format, formatDistanceToNow } from "date-fns";
 
 interface Conversation {
-  id: string;
-  name: string;
-  avatar: string;
-  lastMessage: string;
-  timestamp: string;
-  unread: number;
-  online: boolean;
-  profileId?: string;
+  id: number;
+  otherUserId: number;
+  otherUserName: string;
+  otherUserProfilePicture: string | null;
+  lastMessage: {
+    content: string | null;
+    type: string;
+    createdAt: string;
+  } | null;
+  unreadCount: number;
+  lastMessageAt: string | null;
 }
 
 interface Message {
-  id: string;
-  text: string;
-  sender: "user" | "other";
-  timestamp: string;
+  id: number;
+  content: string | null;
+  type: string;
+  senderId: number;
+  receiverId: number;
+  sender: {
+    id: number;
+    fullName: string | null;
+    profilePicture: string | null;
+  };
+  receiver: {
+    id: number;
+    fullName: string | null;
+    profilePicture: string | null;
+  };
+  read: boolean;
+  createdAt: string;
 }
-
-const mockConversations: Conversation[] = [
-  { 
-    id: "1", 
-    name: "Priya Sharma", 
-    avatar: "https://randomuser.me/api/portraits/women/44.jpg", 
-    lastMessage: "Hey! Is the room still available?", 
-    timestamp: "10:30 AM", 
-    unread: 2, 
-    online: false, 
-    profileId: "1" 
-  },
-  { 
-    id: "2", 
-    name: "Rahul Verma", 
-    avatar: "https://randomuser.me/api/portraits/men/32.jpg", 
-    lastMessage: "Sure, let's meet tomorrow", 
-    timestamp: "9:15 AM", 
-    unread: 0, 
-    online: false, 
-    profileId: "2" 
-  },
-  { 
-    id: "3", 
-    name: "Ananya Patel", 
-    avatar: "https://randomuser.me/api/portraits/women/28.jpg", 
-    lastMessage: "The flat looks great!", 
-    timestamp: "Yesterday", 
-    unread: 0, 
-    online: true, 
-    profileId: "3" 
-  },
-  { 
-    id: "4", 
-    name: "Vikram Singh", 
-    avatar: "https://randomuser.me/api/portraits/men/45.jpg", 
-    lastMessage: "What's the rent?", 
-    timestamp: "Yesterday", 
-    unread: 1, 
-    online: false, 
-    profileId: "4" 
-  },
-  { 
-    id: "5", 
-    name: "Neha Gupta", 
-    avatar: "https://randomuser.me/api/portraits/women/35.jpg", 
-    lastMessage: "Thanks for the info", 
-    timestamp: "Monday", 
-    unread: 0, 
-    online: false, 
-    profileId: "5" 
-  },
-  { 
-    id: "6", 
-    name: "Arjun Reddy", 
-    avatar: "https://randomuser.me/api/portraits/men/22.jpg", 
-    lastMessage: "I'm interested in the 2BHK", 
-    timestamp: "Monday", 
-    unread: 0, 
-    online: true, 
-    profileId: "6" 
-  },
-];
-
-// Mock messages for conversations
-const mockMessages: Record<string, Message[]> = {
-  "2": [ // Rahul Verma
-    { id: "1", text: "Hey! I saw your listing for the flat in Koramangala", sender: "other", timestamp: "10:00 AM" },
-    { id: "2", text: "Hi! Yes, it's still available. Are you looking for a room?", sender: "user", timestamp: "10:05 AM" },
-    { id: "3", text: "Yes, I'm looking for a private room. Is the one you listed still open?", sender: "other", timestamp: "10:10 AM" },
-    { id: "4", text: "Yes it is! It's a fully furnished room with attached bathroom. Rent is ₹15,000 per month including maintenance.", sender: "user", timestamp: "10:15 AM" },
-    { id: "5", text: "That sounds perfect! Can I visit this weekend?", sender: "other", timestamp: "10:20 AM" },
-    { id: "6", text: "Sure! Saturday afternoon works for me. I'll share the exact location.", sender: "user", timestamp: "10:25 AM" },
-    { id: "7", text: "Hey! Is the room still available?", sender: "other", timestamp: "10:30 AM" },
-  ],
-};
 
 export const MessagePage = () => {
   const router = useRouter();
+  const { toast } = useToast();
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [messageFilter, setMessageFilter] = useState<"all" | "you-first" | "they-first">("all");
   const [messageText, setMessageText] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  const filteredConversations = mockConversations.filter(conv => 
-    conv.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Fetch current user and conversations
+  useEffect(() => {
+    fetchCurrentUserAndConversations();
+  }, []);
 
   // Load messages when conversation is selected
   useEffect(() => {
-    if (selectedConversation) {
-      setMessages(mockMessages[selectedConversation.id] || []);
+    if (selectedConversation && currentUserId) {
+      fetchMessages(selectedConversation.id);
+      markMessagesAsRead(selectedConversation.id);
     } else {
       setMessages([]);
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, currentUserId]);
 
-  const handleSendMessage = () => {
-    if (messageText.trim() && selectedConversation) {
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        text: messageText,
-        sender: "user",
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, newMessage]);
-      setMessageText("");
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const fetchCurrentUserAndConversations = async () => {
+    try {
+      setLoading(true);
+      
+      // Get current user
+      const meResponse = await fetch("/api/user/me");
+      const meData = await meResponse.json();
+      
+      if (!meData.success || !meData.user) {
+        throw new Error("Failed to get user information");
+      }
+
+      setCurrentUserId(meData.user.id);
+
+      // Fetch conversations
+      const conversationsResponse = await fetch(`/api/messages/conversations?userId=${meData.user.id}`);
+      const conversationsData = await conversationsResponse.json();
+
+      if (conversationsData.success) {
+        setConversations(conversationsData.conversations);
+      } else {
+        throw new Error(conversationsData.message || "Failed to fetch conversations");
+      }
+    } catch (error: any) {
+      console.error("Error fetching conversations:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load conversations. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
+
+  const fetchMessages = async (conversationId: number) => {
+    try {
+      const response = await fetch(`/api/messages?conversationId=${conversationId}`);
+      const data = await response.json();
+
+      if (data.success) {
+        setMessages(data.messages);
+      } else {
+        throw new Error(data.message || "Failed to fetch messages");
+      }
+    } catch (error: any) {
+      console.error("Error fetching messages:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load messages. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const markMessagesAsRead = async (conversationId: number) => {
+    if (!currentUserId) return;
+
+    try {
+      await fetch("/api/messages", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          conversationId,
+          userId: currentUserId,
+        }),
+      });
+
+      // Update unread count in conversations list
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
+        )
+      );
+    } catch (error) {
+      console.error("Error marking messages as read:", error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !selectedConversation || !currentUserId || sending) return;
+
+    try {
+      setSending(true);
+
+      const formData = new FormData();
+      formData.append("senderId", currentUserId.toString());
+      formData.append("receiverId", selectedConversation.otherUserId.toString());
+      formData.append("content", messageText);
+      formData.append("type", "text");
+
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Add new message to the list
+        const newMessage: Message = {
+          ...result.message,
+          sender: {
+            id: currentUserId,
+            fullName: null,
+            profilePicture: null,
+          },
+          receiver: {
+            id: selectedConversation.otherUserId,
+            fullName: selectedConversation.otherUserName,
+            profilePicture: selectedConversation.otherUserProfilePicture,
+          },
+        };
+        setMessages(prev => [...prev, newMessage]);
+        setMessageText("");
+
+        // Refresh conversations to update last message
+        await fetchCurrentUserAndConversations();
+      } else {
+        throw new Error(result.message || "Failed to send message");
+      }
+    } catch (error: any) {
+      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const formatTimestamp = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+      if (diffInHours < 24) {
+        return format(date, "h:mm a");
+      } else if (diffInHours < 48) {
+        return "Yesterday";
+      } else if (diffInHours < 168) {
+        return format(date, "EEE");
+      } else {
+        return format(date, "MMM d");
+      }
+    } catch {
+      return "";
+    }
+  };
+
+  const filteredConversations = conversations.filter(conv => {
+    const matchesSearch = conv.otherUserName.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (messageFilter === "all") return matchesSearch;
+    // For now, return all matching search. Can implement you-first/they-first later
+    return matchesSearch;
+  });
+
+  if (loading) {
+    return (
+      <div className="w-full h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading conversations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-screen flex bg-white">
@@ -203,51 +324,58 @@ export const MessagePage = () => {
         {/* Conversations List */}
         <ScrollArea className="flex-1">
           <div className="divide-y divide-gray-100">
-            {filteredConversations.map((conversation) => (
-              <div
-                key={conversation.id}
-                className={cn(
-                  "flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors",
-                  selectedConversation?.id === conversation.id && "bg-gray-50"
-                )}
-                onClick={() => setSelectedConversation(conversation)}
-              >
-                {/* Avatar with Online Indicator */}
-                <div className="relative flex-shrink-0">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={conversation.avatar} alt={conversation.name} />
-                    <AvatarFallback className="bg-gray-200 text-gray-600">
-                      {conversation.name.split(" ").map(n => n[0]).join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  {conversation.online && (
-                    <span className="absolute bottom-0 right-0 h-3 w-3 bg-green-500 rounded-full border-2 border-white" />
-                  )}
-                </div>
-
-                {/* Conversation Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-semibold text-gray-900 truncate text-sm">
-                      {conversation.name}
-                    </span>
-                    <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
-                      {conversation.timestamp}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-gray-600 truncate">
-                      {conversation.lastMessage}
-                    </p>
-                    {conversation.unread > 0 && (
-                      <span className="ml-2 bg-red-500 text-white text-xs font-medium rounded-full h-5 w-5 flex items-center justify-center flex-shrink-0">
-                        {conversation.unread}
-                      </span>
-                    )}
-                  </div>
-                </div>
+            {filteredConversations.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-gray-500 text-sm">No conversations yet</p>
+                <p className="text-gray-400 text-xs mt-2">Start a conversation from a profile card</p>
               </div>
-            ))}
+            ) : (
+              filteredConversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  className={cn(
+                    "flex items-center gap-3 p-4 cursor-pointer hover:bg-gray-50 transition-colors",
+                    selectedConversation?.id === conversation.id && "bg-gray-50"
+                  )}
+                  onClick={() => setSelectedConversation(conversation)}
+                >
+                  {/* Avatar */}
+                  <div className="relative flex-shrink-0">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage 
+                        src={conversation.otherUserProfilePicture || "https://randomuser.me/api/portraits/women/44.jpg"} 
+                        alt={conversation.otherUserName} 
+                      />
+                      <AvatarFallback className="bg-gray-200 text-gray-600">
+                        {conversation.otherUserName.split(" ").map(n => n[0]).join("").toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+
+                  {/* Conversation Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-semibold text-gray-900 truncate text-sm">
+                        {conversation.otherUserName}
+                      </span>
+                      <span className="text-xs text-gray-500 flex-shrink-0 ml-2">
+                        {conversation.lastMessageAt ? formatTimestamp(conversation.lastMessageAt) : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-gray-600 truncate">
+                        {conversation.lastMessage?.content || "No messages yet"}
+                      </p>
+                      {conversation.unreadCount > 0 && (
+                        <span className="ml-2 bg-red-500 text-white text-xs font-medium rounded-full h-5 w-5 flex items-center justify-center flex-shrink-0">
+                          {conversation.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </ScrollArea>
       </div>
@@ -260,52 +388,73 @@ export const MessagePage = () => {
             <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={selectedConversation.avatar} alt={selectedConversation.name} />
+                  <AvatarImage 
+                    src={selectedConversation.otherUserProfilePicture || "https://randomuser.me/api/portraits/women/44.jpg"} 
+                    alt={selectedConversation.otherUserName} 
+                  />
                   <AvatarFallback className="bg-gray-200 text-gray-600">
-                    {selectedConversation.name.split(" ").map(n => n[0]).join("")}
+                    {selectedConversation.otherUserName.split(" ").map(n => n[0]).join("").toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="font-semibold text-gray-900">{selectedConversation.name}</h3>
-                  <p className="text-xs text-gray-500">Last seen recently</p>
+                  <h3 className="font-semibold text-gray-900">{selectedConversation.otherUserName}</h3>
+                  <p className="text-xs text-gray-500">Active</p>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8"
+                onClick={() => router.push(`/dashboard?view=profile&userId=${selectedConversation.otherUserId}`)}
+              >
                 <MoreVertical className="h-5 w-5 text-gray-600" />
               </Button>
             </div>
 
             {/* Messages Area */}
-            <ScrollArea className="flex-1 px-4 py-4">
+            <ScrollArea className="flex-1 px-4 py-4" ref={messagesContainerRef}>
               <div className="space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "flex",
-                      message.sender === "user" ? "justify-end" : "justify-start"
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "max-w-[70%] rounded-lg px-4 py-2",
-                        message.sender === "user"
-                          ? "bg-pink-500 text-white"
-                          : "bg-white text-gray-900 shadow-sm"
-                      )}
-                    >
-                      <p className="text-sm">{message.text}</p>
-                      <p
+                {messages.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 text-sm">No messages yet. Start the conversation!</p>
+                  </div>
+                ) : (
+                  messages.map((message) => {
+                    const isUserMessage = message.senderId === currentUserId;
+                    return (
+                      <div
+                        key={message.id}
                         className={cn(
-                          "text-xs mt-1",
-                          message.sender === "user" ? "text-pink-100" : "text-gray-500"
+                          "flex",
+                          isUserMessage ? "justify-end" : "justify-start"
                         )}
                       >
-                        {message.timestamp}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                        <div
+                          className={cn(
+                            "max-w-[70%] rounded-lg px-4 py-2",
+                            isUserMessage
+                              ? "bg-pink-500 text-white"
+                              : "bg-white text-gray-900 shadow-sm"
+                          )}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          <p
+                            className={cn(
+                              "text-xs mt-1",
+                              isUserMessage ? "text-pink-100" : "text-gray-500"
+                            )}
+                          >
+                            {format(new Date(message.createdAt), "h:mm a")}
+                            {isUserMessage && message.read && (
+                              <span className="ml-1">✓✓</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
 
@@ -323,16 +472,19 @@ export const MessagePage = () => {
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
                   onKeyPress={(e) => {
-                    if (e.key === "Enter") {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
                       handleSendMessage();
                     }
                   }}
                   className="flex-1 bg-gray-50 border-gray-200 focus:bg-white"
+                  disabled={sending}
                 />
                 <Button
                   onClick={handleSendMessage}
                   className="bg-pink-500 hover:bg-pink-600 text-white h-8 w-8 p-0"
                   size="icon"
+                  disabled={sending || !messageText.trim()}
                 >
                   <Send className="h-4 w-4" />
                 </Button>

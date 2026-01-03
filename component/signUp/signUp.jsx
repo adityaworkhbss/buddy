@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PersonalInfoStep } from "./personalInfoStep";
 import { HousingDetailsStep } from "./housingDetailStep";
 import { PreferencesStep } from "./preferenceStep";
@@ -10,6 +11,7 @@ import { CheckCircle } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 
 export const Signup = ({ onComplete }) => {
+    const router = useRouter();
     const [currentStep, setCurrentStep] = useState(1);
     const [isComplete, setIsComplete] = useState(false);
     const { toast } = useToast();
@@ -67,6 +69,9 @@ export const Signup = ({ onComplete }) => {
     const handleNext = () => {
         if (currentStep < 2) {
             setCurrentStep(currentStep + 1);
+        } else if (currentStep === 2) {
+            // If we're on step 2 and clicking next, complete the signup
+            handleSubmit();
         }
     };
 
@@ -87,6 +92,8 @@ export const Signup = ({ onComplete }) => {
 
         setTimeout(() => {
             if (onComplete) onComplete();
+            // Redirect to dashboard after successful registration
+            router.push("/dashboard");
         }, 2000);
     };
 
@@ -94,8 +101,7 @@ export const Signup = ({ onComplete }) => {
 
     if (isComplete) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[#f6f2ff] p-4">
-                <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-200 p-8 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-xl border border-gray-200 p-8 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <div className="flex justify-center">
                         <div className="w-24 h-24 bg-gradient-to-r from-pink-600 to-red-500 rounded-full flex items-center justify-center shadow-lg animate-in zoom-in duration-500">
                             <CheckCircle className="w-12 h-12 text-white" />
@@ -124,14 +130,12 @@ export const Signup = ({ onComplete }) => {
                         </ul>
                     </div>
                 </div>
-            </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#f6f2ff] p-4 py-8">
-            <div className="max-w-2xl mx-auto">
-                {/* Header */}
+        <div className="w-full max-w-2xl">
+            {/* Header */}
                 <div className="text-center mb-8 animate-in fade-in slide-in-from-top-4 duration-500">
                     <h1 className="text-4xl font-bold text-gray-800 mb-2">Join Buddy</h1>
                     <p className="text-gray-500 text-lg">Find your perfect flatmate in 2 simple steps</p>
@@ -196,7 +200,6 @@ export const Signup = ({ onComplete }) => {
                         {/*)}*/}
                     </div>
                 </div>
-            </div>
         </div>
     );
 };

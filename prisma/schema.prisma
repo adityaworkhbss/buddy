@@ -31,6 +31,7 @@ model User {
   conversationsAsUser2 Conversation[]  @relation("User2Conversations")
   sentMessages      Message[]          @relation("SentMessages")
   receivedMessages  Message[]          @relation("ReceivedMessages")
+  sessions         Session[]
 }
 
 model WorkExperience {
@@ -102,6 +103,20 @@ model OtpSession {
   
   @@index([phone])
   @@index([timeOfCreation])
+}
+
+model Session {
+  sessionToken     String   @id
+  userId           Int
+  expiresAt        DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([sessionToken])
 }
 
 model Conversation {

@@ -29,10 +29,38 @@ const menuItems = [
 
 export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
     const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
     const router = useRouter();
 
-    const handleLogout = () => {
-        router.push("/");
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
+        try {
+            const response = await fetch("/api/logout", {
+                method: "POST",
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Clear any client-side storage
+                if (typeof window !== "undefined") {
+                    localStorage.clear();
+                }
+                
+                // Redirect to login page
+                router.push("/login");
+            } else {
+                console.error("Logout failed:", data.message);
+                // Still redirect to login even if API call fails
+                router.push("/login");
+            }
+        } catch (error) {
+            console.error("Logout error:", error);
+            // Still redirect to login even if API call fails
+            router.push("/login");
+        } finally {
+            setIsLoggingOut(false);
+        }
     };
 
     return (
@@ -93,9 +121,10 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
                         </AlertDialogCancel>
                         <AlertDialogAction 
                             onClick={handleLogout}
-                            className="bg-red-500 hover:bg-red-600 text-white"
+                            disabled={isLoggingOut}
+                            className="bg-red-500 hover:bg-red-600 text-white disabled:opacity-50"
                         >
-                            Logout
+                            {isLoggingOut ? "Logging out..." : "Logout"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

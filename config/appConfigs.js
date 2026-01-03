@@ -1,6 +1,4 @@
 export const APP_CONFIG = {
-    USE_FIREBASE_OTP: false,
-    USE_FIREBASE_AUTH: false,
     OTP_EXPIRY_MINUTES: 1,
     suggestionFromMapbox: true, // Enable/disable Mapbox address suggestions for location fields
     // Cloudinary is configured via environment variables:

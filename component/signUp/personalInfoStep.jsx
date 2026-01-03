@@ -264,19 +264,14 @@ export const PersonalInfoStep = ({ data = {}, onUpdate = () => {}, onNext = () =
             
             console.log("Verification result:", result);
 
-            if (!OTP.isFirebase) {
-                if (!result || result.success === false || !result.success) {
-                    const errorMessage = result?.message || result?.error || "Invalid OTP. Please check and try again.";
-                    
-                    // Set error message in modal instead of toast
-                    setOtpError(errorMessage);
-                    setOtp("");
-                    setVerifying(false);
-                    return;
-                }
-            } else {
-                // Firebase OTP - if it throws, it's handled in catch
-                // If it doesn't throw, verification succeeded
+            if (!result || result.success === false || !result.success) {
+                const errorMessage = result?.message || result?.error || "Invalid OTP. Please check and try again.";
+                
+                // Set error message in modal instead of toast
+                setOtpError(errorMessage);
+                setOtp("");
+                setVerifying(false);
+                return;
             }
 
             // Create user in backend after successful verification
@@ -326,7 +321,7 @@ export const PersonalInfoStep = ({ data = {}, onUpdate = () => {}, onNext = () =
                 return;
             }
         } catch (err) {
-            // Handle network errors, Firebase errors, or other exceptions
+            // Handle network errors or other exceptions
             const errorMessage = err.message || err.details?.message || err.code || "An error occurred. Please try again.";
             
             // Set error message in modal instead of toast

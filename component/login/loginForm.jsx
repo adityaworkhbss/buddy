@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import { Phone, Lock, Eye, EyeOff, Mail, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "../../lib/firebase";
-import { signInWithCustomToken } from "firebase/auth";
 import { useToast } from "../../hooks/use-toast";
 import { APP_CONFIG } from "../../config/appConfigs";
 import { OTP } from "../../lib/otpHandler";
@@ -153,17 +151,12 @@ export default function LoginComponent() {
         setResetting(true);
         try {
             // Verify OTP
-            let verifyResult;
-            if (OTP.isFirebase) {
-                verifyResult = await OTP.verifyOtp(confirmationResult, otpDigits);
-            } else {
-                verifyResult = await OTP.verifyOtp(confirmationResult, otpDigits);
-                if (!verifyResult || verifyResult.success === false) {
-                    const errorMsg = verifyResult?.message || verifyResult?.error || "Invalid OTP";
-                    setFieldErrors(prev => ({ ...prev, otp: errorMsg }));
-                    setResetting(false);
-                    return;
-                }
+            const verifyResult = await OTP.verifyOtp(confirmationResult, otpDigits);
+            if (!verifyResult || verifyResult.success === false) {
+                const errorMsg = verifyResult?.message || verifyResult?.error || "Invalid OTP";
+                setFieldErrors(prev => ({ ...prev, otp: errorMsg }));
+                setResetting(false);
+                return;
             }
 
             // Reset password
@@ -271,24 +264,6 @@ export default function LoginComponent() {
                 return;
             }
 
-            // Check if Firebase authentication is enabled
-            if (APP_CONFIG.USE_FIREBASE_AUTH && data.firebaseToken) {
-                // Use Firebase authentication
-                try {
-                    const result = await signInWithCustomToken(auth, data.firebaseToken);
-                    const uid = result.user.uid;
-                    const idToken = await result.user.getIdToken();
-                    const refreshToken = result.user.refreshToken;
-
-                    console.log("UID:", uid);
-                    console.log("ID Token:", idToken);
-                    console.log("Refresh Token:", refreshToken);
-                } catch (firebaseError) {
-                    console.error("Firebase sign-in error:", firebaseError);
-                    // Continue with login even if Firebase sign-in fails
-                }
-            }
-
             // Clear any errors on success
             setError("");
 
@@ -305,7 +280,8 @@ export default function LoginComponent() {
                 description: "Welcome back!",
             });
 
-            // router.push("/dashboard");
+            // Redirect to dashboard after successful login
+            router.push("/dashboard");
         } catch (err) {
             console.error("Login error:", err);
             const errorMsg = err.message || "Login failed. Please try again.";
@@ -323,10 +299,10 @@ export default function LoginComponent() {
 
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[#f6f2ff] px-4">
-            <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8 border border-gray-200">
+        <>
+        <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8 border border-gray-200">
 
-                {/* Header */}
+            {/* Header */}
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
                     <p className="text-gray-500 mt-1">
@@ -446,17 +422,17 @@ export default function LoginComponent() {
                     <div className="text-center mt-2">
                         <p className="text-gray-500 text-sm">Don't have an account?</p>
                         <button
-                            onClick={() => router.push("/register")}
+                            onClick={() => router.push("/signup")}
                             className="w-full h-12 mt-2 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium"
                         >
                             Create New Account
                         </button>
                     </div>
                 </div>
-            </div>
+        </div>
 
-            {/* Forgot Password Modal */}
-            {forgotPasswordOpen && (
+        {/* Forgot Password Modal */}
+        {forgotPasswordOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
                     <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-4">
@@ -656,6 +632,6 @@ export default function LoginComponent() {
                     </div>
                 </div>
             )}
-        </div>
+        </>
     );
 }

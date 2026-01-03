@@ -1,8 +1,5 @@
 import { APP_CONFIG } from "../config/appConfigs";
 
-import { auth, setupRecaptcha } from "./firebase";
-import { signInWithPhoneNumber } from "firebase/auth";
-
 async function sendCustomOtp(phone) {
     const res = await fetch("/api/send-otp", {
         method: "POST",
@@ -11,8 +8,7 @@ async function sendCustomOtp(phone) {
     });
 
     const data = await res.json();
-    
-    // If response is not ok, throw error with the message
+
     if (!res.ok || data.error) {
         const errorMessage = data.error || data.message || "Failed to send OTP";
         const error = new Error(errorMessage);
@@ -59,27 +55,14 @@ async function verifyCustomOtp(sessionId, otp) {
     }
 }
 
-async function sendFirebaseOtp(phone) {
-    const recaptcha = setupRecaptcha();
-    return await signInWithPhoneNumber(auth, phone, recaptcha);
-}
-
-async function verifyFirebaseOtp(confirmation, otp) {
-    return await confirmation.confirm(otp);
-}
-
 export const OTP = {
     sendOtp: (phone) => {
-        return APP_CONFIG.USE_FIREBASE_OTP
-            ? sendFirebaseOtp(phone)
-            : sendCustomOtp(phone);
+        return sendCustomOtp(phone);
     },
 
     verifyOtp: (sessionOrConfirmation, otp) => {
-        return APP_CONFIG.USE_FIREBASE_OTP
-            ? verifyFirebaseOtp(sessionOrConfirmation, otp)
-            : verifyCustomOtp(sessionOrConfirmation.sessionId, otp);
+        return verifyCustomOtp(sessionOrConfirmation.sessionId, otp);
     },
 
-    isFirebase: APP_CONFIG.USE_FIREBASE_OTP
+    isFirebase: false
 };

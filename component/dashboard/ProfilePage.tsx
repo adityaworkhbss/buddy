@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Button } from "@/component/ui/button";
 import { Input } from "@/component/ui/input";
@@ -159,6 +159,15 @@ export const ProfilePage = () => {
   const [editedProfile, setEditedProfile] = useState<UserProfile>(mockUserProfile);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [locationSearchQuery, setLocationSearchQuery] = useState<string>("");
+  const [locationSearchResults, setLocationSearchResults] = useState<any[]>([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [locationCoords, setLocationCoords] = useState<[number, number] | null>(null);
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
   // Add Priya Patel profile for saved section
   const priyaProfile = {
     id: "6",
@@ -220,21 +229,282 @@ export const ProfilePage = () => {
     setIsEditMode(false);
   };
 
+  // Fetch user profile data
+  useEffect(() => {
+    fetchUserProfile();
+  }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true);
+      
+      // First get current user ID
+      const meResponse = await fetch("/api/user/me");
+      const meData = await meResponse.json();
+      
+      if (!meData.success || !meData.user) {
+        toast({
+          title: "Error",
+          description: "Failed to get user information",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      setCurrentUserId(meData.user.id);
+
+      // Then fetch full profile
+      const profileResponse = await fetch(`/api/user/profile?userId=${meData.user.id}`);
+      const profileData = await profileResponse.json();
+
+      if (profileData.success && profileData.profile) {
+        const apiProfile = profileData.profile;
+        
+        // Map API response to component structure
+        const mappedProfile: UserProfile = {
+          name: apiProfile.fullName || "",
+          age: apiProfile.age?.toString() || "",
+          gender: apiProfile.gender || "",
+          phone: apiProfile.phone?.replace("+91", "") || "",
+          email: "", // Email not in schema yet
+          city: apiProfile.housingDetails?.preferenceLocation?.split(",")[0]?.trim() || "",
+          state: apiProfile.housingDetails?.preferenceLocation?.split(",")[1]?.trim() || "",
+          profilePictureUrl: apiProfile.profilePicture || "",
+          jobExperiences: apiProfile.workExperiences?.map((exp: any) => ({
+            id: exp.id.toString(),
+            company: exp.company || "",
+            position: exp.position || exp.experienceTitle || "",
+            fromYear: exp.from ? new Date(exp.from).getFullYear().toString() : "",
+            tillYear: exp.till ? new Date(exp.till).getFullYear().toString() : "",
+            currentlyWorking: exp.stillWorking || false,
+          })) || [],
+          educationExperiences: apiProfile.educations?.map((edu: any) => ({
+            id: edu.id.toString(),
+            institution: edu.institution || "",
+            degree: edu.degree || edu.educationTitle || "",
+            startYear: edu.from ? new Date(edu.from).getFullYear().toString() : "",
+            endYear: edu.till ? new Date(edu.till).getFullYear().toString() : "",
+          })) || [],
+          housingPreferences: apiProfile.housingDetails ? {
+            lookingFor: apiProfile.housingDetails.lookingFor || "Open To Both",
+            budgetRange: apiProfile.housingDetails.budgetMin && apiProfile.housingDetails.budgetMax
+              ? `₹${apiProfile.housingDetails.budgetMin.toLocaleString()} - ₹${apiProfile.housingDetails.budgetMax.toLocaleString()}`
+              : "",
+            movingDate: apiProfile.housingDetails.movingDate 
+              ? new Date(apiProfile.housingDetails.movingDate).toISOString().split('T')[0]
+              : "",
+            preferredLocation: apiProfile.housingDetails.preferenceLocation || "",
+            searchRadius: apiProfile.housingDetails.searchRadius ? `${apiProfile.housingDetails.searchRadius} km` : "",
+            flatTypes: [], // Not stored separately
+            roomTypes: apiProfile.housingDetails.roomType ? [apiProfile.housingDetails.roomType] : [],
+            amenities: apiProfile.housingDetails.preferredAmenities || [],
+            locationCoords: apiProfile.housingDetails.latitude && apiProfile.housingDetails.longitude
+              ? [apiProfile.housingDetails.longitude, apiProfile.housingDetails.latitude] as [number, number]
+              : null,
+          } : undefined,
+          flatDetails: apiProfile.housingDetails?.address ? {
+            address: apiProfile.housingDetails.address || "",
+            description: apiProfile.housingDetails.description || "",
+            commonAmenities: apiProfile.housingDetails.availableAmenities || [],
+            rooms: [], // Rooms not stored in current schema
+          } : undefined,
+        };
+
+        setProfile(mappedProfile);
+        setEditedProfile(mappedProfile);
+        
+        // Set location search query and coords
+        if (mappedProfile.housingPreferences?.preferredLocation) {
+          setLocationSearchQuery(mappedProfile.housingPreferences.preferredLocation);
+        }
+        if (mappedProfile.housingPreferences?.locationCoords) {
+          setLocationCoords(mappedProfile.housingPreferences.locationCoords);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load profile data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mapbox location search
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_KEY;
+
+  const searchLocation = useCallback(async (query: string) => {
+    if (!query.trim() || !mapboxToken) {
+      setLocationSearchResults([]);
+      return;
+    }
+
+    setIsSearchingLocation(true);
+    try {
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+        query
+      )}.json?access_token=${mapboxToken}&autocomplete=true&limit=5`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.features) {
+        setLocationSearchResults(data.features);
+      }
+    } catch (error) {
+      console.error("Error searching location:", error);
+      setLocationSearchResults([]);
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  }, [mapboxToken]);
+
+  // Debounce location search
+  useEffect(() => {
+    if (!locationSearchQuery.trim() || !mapboxToken) {
+      setLocationSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      searchLocation(locationSearchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [locationSearchQuery, searchLocation, mapboxToken]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        locationDropdownRef.current &&
+        !locationDropdownRef.current.contains(event.target as Node) &&
+        locationInputRef.current &&
+        !locationInputRef.current.contains(event.target as Node)
+      ) {
+        setLocationSearchResults([]);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Handle location selection
+  const handleSelectLocation = (place: any) => {
+    const coords = place.center; // [lng, lat]
+    console.log("Location selected:", place.place_name, "Coords:", coords);
+    setLocationSearchQuery(place.place_name);
+    setLocationSearchResults([]);
+    setLocationCoords(coords);
+    handleHousingPreferenceChange("preferredLocation", place.place_name);
+  };
+
   const handleSave = async () => {
     try {
-      // Here you would typically make an API call to save the profile
-    setProfile({ ...editedProfile });
+      setSaving(true);
+
+      if (!currentUserId) {
+        toast({
+          title: "Error",
+          description: "User ID not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Get current user phone
+      const meResponse = await fetch("/api/user/me");
+      const meData = await meResponse.json();
+      
+      if (!meData.success || !meData.user) {
+        throw new Error("Failed to get user information");
+      }
+
+      // Prepare data for API
+      const personalInfo = {
+        name: editedProfile.name,
+        age: editedProfile.age,
+        gender: editedProfile.gender,
+        profilePicture: editedProfile.profilePictureUrl,
+        jobExperiences: editedProfile.jobExperiences.map(exp => ({
+          company: exp.company,
+          position: exp.position,
+          fromYear: exp.fromYear,
+          tillYear: exp.tillYear,
+          currentlyWorking: exp.currentlyWorking,
+        })),
+        educationExperiences: editedProfile.educationExperiences.map(edu => ({
+          institution: edu.institution,
+          degree: edu.degree,
+          startYear: edu.startYear,
+          endYear: edu.endYear,
+        })),
+      };
+
+      const housingDetails = {
+        searchType: editedProfile.housingPreferences?.lookingFor || "Open To Both",
+        budget: editedProfile.housingPreferences?.budgetRange 
+          ? editedProfile.housingPreferences.budgetRange.replace(/[₹,\s]/g, "").split("-").map(v => parseInt(v))
+          : [10000, 25000],
+        location: editedProfile.housingPreferences?.preferredLocation || "",
+        locationCoords: locationCoords || null,
+        radius: editedProfile.housingPreferences?.searchRadius 
+          ? parseInt(editedProfile.housingPreferences.searchRadius.replace(" km", ""))
+          : 5,
+        movingDate: editedProfile.housingPreferences?.movingDate || "",
+        roomType: editedProfile.housingPreferences?.roomTypes?.[0] || "",
+        amenityPreferences: editedProfile.housingPreferences?.amenities || [],
+        flatDetails: {
+          address: editedProfile.flatDetails?.address || "",
+          description: editedProfile.flatDetails?.description || "",
+          amenities: editedProfile.flatDetails?.commonAmenities || [],
+        },
+      };
+
+      console.log("Saving housing details with locationCoords:", locationCoords);
+      console.log("Housing details payload:", JSON.stringify(housingDetails, null, 2));
+
+      const formData = new FormData();
+      formData.append("phone", meData.user.phone);
+      formData.append("personalInfo", JSON.stringify(personalInfo));
+      formData.append("housingDetails", JSON.stringify(housingDetails));
+
+      const response = await fetch("/api/user/update-profile", {
+        method: "PUT",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || "Failed to update profile");
+      }
+
+      setProfile({ ...editedProfile });
       setIsEditMode(false);
-    toast({
+      toast({
         title: "Profile Updated!",
         description: "Your profile has been successfully updated.",
       });
-    } catch (err) {
+
+      // Refresh profile data
+      await fetchUserProfile();
+    } catch (err: any) {
+      console.error("Error saving profile:", err);
       toast({
         title: "Failed to save",
-        description: "Please try again later.",
+        description: err.message || "Please try again later.",
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -245,17 +515,52 @@ export const ProfilePage = () => {
     }));
   };
 
-  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleProfilePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditedProfile(prev => ({
-          ...prev,
-          profilePictureUrl: reader.result as string
-        }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Show preview immediately
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setEditedProfile(prev => ({
+            ...prev,
+            profilePictureUrl: reader.result as string
+          }));
+        };
+        reader.readAsDataURL(file);
+
+        // Upload to Cloudinary
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("type", "profile");
+
+        const uploadResponse = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const uploadResult = await uploadResponse.json();
+        
+        if (uploadResult.success && uploadResult.url) {
+          setEditedProfile(prev => ({
+            ...prev,
+            profilePictureUrl: uploadResult.url
+          }));
+          toast({
+            title: "Success",
+            description: "Profile picture uploaded successfully",
+          });
+        } else {
+          throw new Error(uploadResult.message || "Failed to upload image");
+        }
+      } catch (error: any) {
+        console.error("Error uploading profile picture:", error);
+        toast({
+          title: "Upload Failed",
+          description: error.message || "Failed to upload profile picture",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -356,6 +661,17 @@ export const ProfilePage = () => {
 
   const currentProfile = isEditMode ? editedProfile : profile;
 
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen p-4 md:p-8 bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full min-h-screen p-4 md:p-8 bg-gray-50">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -396,10 +712,11 @@ export const ProfilePage = () => {
                 </Button>
                 <Button 
                   onClick={handleSave}
-                  className="bg-pink-500 hover:bg-pink-600 text-white"
+                  disabled={saving}
+                  className="bg-pink-500 hover:bg-pink-600 text-white disabled:opacity-50"
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                  {saving ? "Saving..." : "Save Changes"}
                 </Button>
               </>
             )}
@@ -938,18 +1255,47 @@ export const ProfilePage = () => {
                       <Input value={currentProfile.housingPreferences?.movingDate || "2/1/2024"} className="bg-gray-50 border-gray-300" readOnly />
                     )}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 relative" ref={locationDropdownRef}>
                     <Label className="text-gray-700 flex items-center gap-2">
                       <MapPin className="w-4 h-4" />
                       Preferred Location
                     </Label>
                     {isEditMode ? (
-                      <Input
-                        value={currentProfile.housingPreferences?.preferredLocation || ""}
-                        onChange={(e) => handleHousingPreferenceChange("preferredLocation", e.target.value)}
-                        className="bg-white border-gray-300"
-                        placeholder="Andheri West, Mumbai"
-                      />
+                      <div className="relative">
+                        <Input
+                          ref={locationInputRef}
+                          value={locationSearchQuery}
+                          onChange={(e) => {
+                            setLocationSearchQuery(e.target.value);
+                            handleHousingPreferenceChange("preferredLocation", e.target.value);
+                          }}
+                          className="bg-white border-gray-300"
+                          placeholder="Search for location..."
+                        />
+                        {locationSearchResults.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                            {locationSearchResults.map((place, idx) => (
+                              <div
+                                key={idx}
+                                onClick={() => handleSelectLocation(place)}
+                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                              >
+                                <p className="text-sm font-medium text-gray-900">{place.place_name}</p>
+                                {place.context && (
+                                  <p className="text-xs text-gray-500">
+                                    {place.context.map((ctx: any) => ctx.text).join(", ")}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {isSearchingLocation && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <Input value={currentProfile.housingPreferences?.preferredLocation || "Andheri West, Mumbai"} className="bg-gray-50 border-gray-300" readOnly />
                     )}
