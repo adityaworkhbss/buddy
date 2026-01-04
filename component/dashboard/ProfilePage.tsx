@@ -658,7 +658,7 @@ export const ProfilePage = () => {
     }));
   };
 
-  const handleFlatDetailChange = (field: keyof FlatDetails, value: string | string[]) => {
+  const handleFlatDetailChange = (field: keyof FlatDetails, value: string | string[] | FlatDetails['rooms']) => {
     setEditedProfile(prev => ({
       ...prev,
       flatDetails: {
