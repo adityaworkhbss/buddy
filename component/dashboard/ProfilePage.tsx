@@ -1748,7 +1748,7 @@ export const ProfilePage = () => {
                             {savedProfile.searchType === "flatmate" ? "Has Flat" : "Looking for Flat"}
                           </Badge>
                           <div className="flex flex-wrap gap-2">
-                            {(savedProfile.myHabits || []).slice(0, 3).map((habit, idx) => (
+                            {(savedProfile.myHabits || []).slice(0, 3).map((habit: string, idx: number) => (
                               <Badge key={idx} variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">
                                 {habit}
                               </Badge>
