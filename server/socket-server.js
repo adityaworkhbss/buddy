@@ -200,6 +200,52 @@ io.on("connection", (socket) => {
             userSockets.delete(socket.userId);
         }
     });
+
+    // Handle broadcasting new message from API route
+    socket.on("broadcast_new_message", (data) => {
+        try {
+            const { message, conversationId, receiverId } = data;
+            
+            if (!message || !conversationId) {
+                console.error("Invalid broadcast_new_message data");
+                return;
+            }
+
+            // Emit to conversation room
+            io.to(`conversation_${conversationId}`).emit("new_message", message);
+            
+            // Emit to receiver's user room
+            if (receiverId) {
+                io.to(`user_${receiverId}`).emit("new_message", message);
+            }
+            
+            console.log(`Broadcasted new message to conversation ${conversationId}`);
+        } catch (error) {
+            console.error("Error broadcasting new message:", error);
+        }
+    });
+
+    // Handle marking messages as read from API route
+    socket.on("broadcast_messages_read", (data) => {
+        try {
+            const { conversationId, userId } = data;
+            
+            if (!conversationId || !userId) {
+                console.error("Invalid broadcast_messages_read data");
+                return;
+            }
+
+            // Notify other users in conversation
+            io.to(`conversation_${conversationId}`).emit("messages_read", {
+                conversationId,
+                userId,
+            });
+            
+            console.log(`Broadcasted messages read for conversation ${conversationId}`);
+        } catch (error) {
+            console.error("Error broadcasting messages read:", error);
+        }
+    });
 });
 
 // Start server

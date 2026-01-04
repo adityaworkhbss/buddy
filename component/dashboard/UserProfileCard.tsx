@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
-import { Bookmark, MapPin, Home, Send } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Bookmark, MapPin, Home, Send, Share2 } from "lucide-react";
 import { Button } from "@/component/ui/button";
 import { Textarea } from "@/component/ui/textarea";
 import { Badge } from "@/component/ui/badge";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface DiscoveredUser {
   id: string;
@@ -48,6 +49,212 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
   onMessageChange,
   onSendMessage,
 }) => {
+  const { toast } = useToast();
+  const [isSharing, setIsSharing] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Check if profile is saved on mount
+  useEffect(() => {
+    checkIfProfileIsSaved();
+  }, [profile.id]);
+
+  const handleShareProfile = async () => {
+    if (isSharing) return;
+
+    try {
+      setIsSharing(true);
+
+      // Get share ID for the profile being viewed
+      const shareResponse = await fetch(`/api/user/share?userId=${profile.id}`);
+
+      const shareData = await shareResponse.json();
+
+      if (shareData.success && shareData.shareUrl) {
+        // Build formatted text with profile details
+        const formattedText = buildShareText(shareData.shareUrl, profile);
+        
+        // Copy formatted text to clipboard
+        await navigator.clipboard.writeText(formattedText);
+        
+        toast({
+          title: "Link Copied!",
+          description: "Profile details and link have been copied to clipboard. You can now share it with others.",
+        });
+      } else {
+        throw new Error(shareData.message || "Failed to get share link");
+      }
+    } catch (error: any) {
+      console.error("Error sharing profile:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate share link. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const buildShareText = (shareUrl: string, profileData: DiscoveredUser): string => {
+    const age = profileData.age || "N/A";
+    const address = profileData.flatDetails?.address || `${profileData.city}, ${profileData.state}` || "N/A";
+    
+    // Get moving date from flat details (availableFrom in rooms)
+    let movingDate = "N/A";
+    if (profileData.flatDetails?.rooms && profileData.flatDetails.rooms.length > 0) {
+      const firstRoom = profileData.flatDetails.rooms[0];
+      if (firstRoom.availableFrom) {
+        try {
+          const date = typeof firstRoom.availableFrom === "string" 
+            ? new Date(firstRoom.availableFrom) 
+            : firstRoom.availableFrom;
+          movingDate = format(date, "dd MMM yyyy");
+        } catch (e) {
+          movingDate = typeof firstRoom.availableFrom === "string" 
+            ? firstRoom.availableFrom 
+            : "N/A";
+        }
+      }
+    }
+    
+    // Calculate annual rent from rooms
+    let annualRent = "N/A";
+    if (profileData.flatDetails?.rooms && profileData.flatDetails.rooms.length > 0) {
+      const totalMonthlyRent = profileData.flatDetails.rooms.reduce((sum, room) => {
+        const rent = parseFloat(room.rent?.replace(/[^0-9.]/g, "") || "0");
+        return sum + rent;
+      }, 0);
+      if (totalMonthlyRent > 0) {
+        const annual = totalMonthlyRent * 12;
+        annualRent = `₹${annual.toLocaleString("en-IN")}`;
+      }
+    }
+
+    return `${shareUrl}
+
+Name: ${profileData.name}
+Age: ${age}
+Address: ${address}
+Moving Date: ${movingDate}
+Annual Rent: ${annualRent}`;
+  };
+
+  const handleShareOnWhatsApp = async () => {
+    if (isSharing) return;
+
+    try {
+      setIsSharing(true);
+
+      // Get share ID for the profile being viewed
+      const shareResponse = await fetch(`/api/user/share?userId=${profile.id}`);
+
+      const shareData = await shareResponse.json();
+
+      if (shareData.success && shareData.shareUrl) {
+        const shareText = buildShareText(shareData.shareUrl, profile);
+        const encodedText = encodeURIComponent(shareText);
+        
+        // Open WhatsApp with pre-filled text
+        // The image will show as preview if the link has proper Open Graph meta tags
+        const whatsappUrl = `https://wa.me/?text=${encodedText}`;
+        window.open(whatsappUrl, "_blank");
+        
+        toast({
+          title: "Opening WhatsApp",
+          description: "Share this profile on WhatsApp",
+        });
+      } else {
+        throw new Error(shareData.message || "Failed to get share link");
+      }
+    } catch (error: any) {
+      console.error("Error sharing on WhatsApp:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to open WhatsApp. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const checkIfProfileIsSaved = async () => {
+    try {
+      const savedResponse = await fetch("/api/user/saved-profiles");
+      const savedData = await savedResponse.json();
+
+      if (savedData.success) {
+        const isSavedProfile = savedData.profiles.some(
+          (p: any) => p.id === profile.id
+        );
+        setIsSaved(isSavedProfile);
+      }
+    } catch (error) {
+      console.error("Error checking if profile is saved:", error);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    try {
+      const meResponse = await fetch("/api/user/me");
+      const meData = await meResponse.json();
+      
+      if (!meData.success || !meData.user) {
+        toast({
+          title: "Error",
+          description: "Failed to get user information",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (isSaved) {
+        // Unsave the profile
+        const response = await fetch(`/api/user/saved-profiles?savedUserId=${profile.id}`, {
+          method: "DELETE",
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          setIsSaved(false);
+          toast({
+            title: "Profile Removed",
+            description: `${profile.name}'s profile has been removed from saved.`,
+          });
+        } else {
+          throw new Error(result.message || "Failed to remove saved profile");
+        }
+      } else {
+        // Save the profile
+        const response = await fetch("/api/user/saved-profiles", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ savedUserId: profile.id }),
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          setIsSaved(true);
+          toast({
+            title: "Profile Saved",
+            description: `${profile.name}'s profile has been saved.`,
+          });
+        } else {
+          throw new Error(result.message || "Failed to save profile");
+        }
+      }
+    } catch (error: any) {
+      console.error("Error saving/unsaving profile:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update saved profile. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl bg-white rounded-lg shadow-xl border border-gray-200 overflow-y-auto max-h-[calc(100vh-300px)]">
       {/* Profile Header Card */}
@@ -75,8 +282,34 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" className="text-gray-600 hover:text-gray-900">
-                  <Bookmark className="w-5 h-5" />
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-gray-600 hover:text-gray-900"
+                  onClick={handleShareProfile}
+                  disabled={isSharing}
+                  title="Copy Profile Link"
+                >
+                  <Share2 className={`w-5 h-5 ${isSharing ? "animate-spin" : ""}`} />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  onClick={handleShareOnWhatsApp}
+                  disabled={isSharing}
+                  title="Share on WhatsApp"
+                >
+                  <MessageCircle className={`w-5 h-5 ${isSharing ? "animate-spin" : ""}`} />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className={`text-gray-600 hover:text-gray-900 ${isSaved ? "text-pink-500" : ""}`}
+                  onClick={handleSaveProfile}
+                  title={isSaved ? "Remove from saved" : "Save profile"}
+                >
+                  <Bookmark className={`w-5 h-5 ${isSaved ? "fill-current" : ""}`} />
                 </Button>
                 <Badge className="bg-pink-500 text-white px-4 py-2 text-sm">
                   {profile.searchType === "flatmate" ? "Has Flat" : "Looking for Flat"}

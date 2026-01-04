@@ -11,6 +11,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { format, formatDistanceToNow } from "date-fns";
+import { useSocket } from "@/hooks/useSocket";
+import type { Socket } from "socket.io-client";
 
 interface Conversation {
   id: number;
@@ -28,6 +30,7 @@ interface Conversation {
 
 interface Message {
   id: number;
+  conversationId?: number;
   content: string | null;
   type: string;
   senderId: number;
@@ -60,6 +63,10 @@ export const MessagePage = () => {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
+
+  // Initialize socket connection
+  const { socket, isConnected } = useSocket(currentUserId);
 
   // Fetch current user and conversations
   useEffect(() => {
@@ -69,12 +76,89 @@ export const MessagePage = () => {
   // Load messages when conversation is selected
   useEffect(() => {
     if (selectedConversation && currentUserId) {
+      setCurrentConversationId(selectedConversation.id);
       fetchMessages(selectedConversation.id);
       markMessagesAsRead(selectedConversation.id);
+      
+      // Join conversation room via socket
+      if (socket && isConnected) {
+        socket.emit("join_conversation", selectedConversation.id);
+      }
     } else {
       setMessages([]);
+      setCurrentConversationId(null);
+      
+      // Leave conversation room
+      if (socket && currentConversationId) {
+        socket.emit("leave_conversation", currentConversationId);
+      }
     }
-  }, [selectedConversation, currentUserId]);
+  }, [selectedConversation, currentUserId, socket, isConnected]);
+
+  // Listen for real-time messages via socket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (message: Message) => {
+      console.log("Received new message via socket:", message);
+      
+      // Only add message if it's for the current conversation
+      if (currentConversationId && message.conversationId === currentConversationId) {
+        setMessages(prev => {
+          // Check if message already exists (avoid duplicates) - check by ID and also by content + timestamp
+          const exists = prev.some(m => 
+            m.id === message.id || 
+            (m.content === message.content && 
+             m.senderId === message.senderId && 
+             m.receiverId === message.receiverId &&
+             Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 1000)
+          );
+          if (exists) {
+            console.log("Duplicate message detected, skipping:", message.id);
+            return prev;
+          }
+          return [...prev, message];
+        });
+        
+        // Mark as read if it's the current conversation
+        if (message.receiverId === currentUserId) {
+          markMessagesAsRead(currentConversationId);
+        }
+        
+        // Scroll to bottom to show new message
+        setTimeout(() => scrollToBottom(), 100);
+      }
+
+      // Update conversations list with new last message
+      setConversations(prev =>
+        prev.map(conv => {
+          if (conv.id === message.conversationId) {
+            return {
+              ...conv,
+              lastMessage: {
+                content: message.content,
+                type: message.type,
+                createdAt: message.createdAt,
+              },
+              lastMessageAt: message.createdAt,
+              unreadCount: 
+                message.receiverId === currentUserId && 
+                (!selectedConversation || selectedConversation.id !== message.conversationId)
+                  ? conv.unreadCount + 1
+                  : conv.unreadCount,
+            };
+          }
+          return conv;
+        })
+      );
+    };
+
+    socket.on("new_message", handleNewMessage);
+
+    return () => {
+      socket.off("new_message", handleNewMessage);
+    };
+  }, [socket, currentConversationId, currentUserId, selectedConversation]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -182,21 +266,30 @@ export const MessagePage = () => {
       const result = await response.json();
 
       if (result.success) {
-        // Add new message to the list
-        const newMessage: Message = {
-          ...result.message,
-          sender: {
-            id: currentUserId,
-            fullName: null,
-            profilePicture: null,
-          },
-          receiver: {
-            id: selectedConversation.otherUserId,
-            fullName: selectedConversation.otherUserName,
-            profilePicture: selectedConversation.otherUserProfilePicture,
-          },
-        };
-        setMessages(prev => [...prev, newMessage]);
+        // Add message only if socket is not connected (fallback)
+        // If socket is connected, it will be added via socket event to avoid duplicates
+        if (!isConnected || !socket) {
+          const newMessage: Message = {
+            ...result.message,
+            sender: {
+              id: currentUserId,
+              fullName: null,
+              profilePicture: null,
+            },
+            receiver: {
+              id: selectedConversation.otherUserId,
+              fullName: selectedConversation.otherUserName,
+              profilePicture: selectedConversation.otherUserProfilePicture,
+            },
+          };
+          setMessages(prev => {
+            // Check for duplicates before adding
+            const exists = prev.some(m => m.id === newMessage.id);
+            if (exists) return prev;
+            return [...prev, newMessage];
+          });
+        }
+        
         setMessageText("");
 
         // Refresh conversations to update last message
@@ -266,7 +359,15 @@ export const MessagePage = () => {
         {/* Sidebar Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">Chats</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-gray-900">Chats</h2>
+              {process.env.NEXT_PUBLIC_SOCKET_URL && (
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  isConnected ? "bg-green-500" : "bg-gray-400"
+                )} title={isConnected ? "Real-time connected" : "Real-time unavailable (messages will still work)"} />
+              )}
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors">
@@ -419,11 +520,13 @@ export const MessagePage = () => {
                     <p className="text-gray-500 text-sm">No messages yet. Start the conversation!</p>
                   </div>
                 ) : (
-                  messages.map((message) => {
+                  messages.map((message, index) => {
                     const isUserMessage = message.senderId === currentUserId;
+                    // Use a combination of id and index to ensure unique keys
+                    const uniqueKey = message.id ? `msg-${message.id}` : `msg-temp-${index}-${message.createdAt}`;
                     return (
                       <div
-                        key={message.id}
+                        key={uniqueKey}
                         className={cn(
                           "flex",
                           isUserMessage ? "justify-end" : "justify-start"

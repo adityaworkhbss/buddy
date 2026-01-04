@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "socket": "node server/socket-server.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run socket\""
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.940.0",
@@ -36,6 +38,7 @@
     "qrcode-terminal": "^0.12.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.1",
     "twilio": "^5.10.6",
     "uuid": "^13.0.0",

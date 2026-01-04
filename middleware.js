@@ -4,10 +4,25 @@ export async function middleware(request) {
     const { pathname } = request.nextUrl;
 
     // Public routes that don't require authentication
-    const publicRoutes = ["/login", "/signup", "/api/login", "/api/signup", "/api/send-otp", "/api/verify-otp", "/api/logout"];
+    const publicRoutes = [
+        "/login", 
+        "/signup", 
+        "/api/login", 
+        "/api/signup", 
+        "/api/send-otp", 
+        "/api/verify-otp", 
+        "/api/logout",
+        "/api/user/reset-password"  // Allow password reset without authentication
+    ];
     
-    // Check if the route is public
-    const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+    // Check if the route is public (exact match or starts with)
+    const isPublicRoute = publicRoutes.some(route => {
+        const matches = pathname === route || pathname.startsWith(route + "/") || pathname.startsWith(route);
+        if (matches && pathname.includes("reset-password")) {
+            console.log("Reset password route matched as public:", pathname);
+        }
+        return matches;
+    });
 
     // Allow public routes
     if (isPublicRoute) {

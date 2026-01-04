@@ -180,10 +180,7 @@ export const ProfilePage = () => {
     myHabits: ["Non-Smoker", "Vegan", "Yoga Practitioner", "Clean"]
   };
   
-  const [savedProfiles, setSavedProfiles] = useState([
-    mockProfiles[0], // Sarah Johnson
-    priyaProfile // Priya Patel
-  ]);
+  const [savedProfiles, setSavedProfiles] = useState<any[]>([]);
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -229,9 +226,10 @@ export const ProfilePage = () => {
     setIsEditMode(false);
   };
 
-  // Fetch user profile data
+  // Fetch user profile data and saved profiles
   useEffect(() => {
     fetchUserProfile();
+    fetchSavedProfiles();
   }, []);
 
   const fetchUserProfile = async () => {
@@ -331,6 +329,21 @@ export const ProfilePage = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSavedProfiles = async () => {
+    try {
+      const response = await fetch("/api/user/saved-profiles");
+      const data = await response.json();
+
+      if (data.success) {
+        setSavedProfiles(data.profiles || []);
+      } else {
+        console.error("Failed to fetch saved profiles:", data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching saved profiles:", error);
     }
   };
 

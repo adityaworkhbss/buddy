@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
+import { broadcastNewMessage } from "../../../lib/socket-client";
 
 // GET - Fetch messages for a conversation
 export async function GET(req) {
@@ -141,6 +142,14 @@ export async function POST(req) {
                 },
             },
         });
+
+        // Emit socket event to notify users about the new message
+        try {
+            broadcastNewMessage(message, conversation.id, parseInt(receiverId));
+        } catch (socketError) {
+            // Don't fail the request if socket emission fails
+            console.error("Error emitting socket event:", socketError);
+        }
 
         return NextResponse.json({
             success: true,

@@ -21,6 +21,7 @@ model User {
   drinking          String?
   diet              String?
   sleepSchedule     String?
+  shareId           String?            @unique // Unique share ID for profile sharing
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   
@@ -32,6 +33,8 @@ model User {
   sentMessages      Message[]          @relation("SentMessages")
   receivedMessages  Message[]          @relation("ReceivedMessages")
   sessions         Session[]
+  savedProfiles    SavedProfile[]      @relation("SavedByUser")
+  savedByUsers     SavedProfile[]      @relation("SavedProfile")
 }
 
 model WorkExperience {
@@ -162,4 +165,20 @@ model Message {
   @@index([receiverId])
   @@index([createdAt])
   @@index([read])
+}
+
+model SavedProfile {
+  id            Int      @id @default(autoincrement())
+  userId        Int      // User who saved the profile
+  savedUserId   Int      // User whose profile was saved
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  user          User     @relation("SavedByUser", fields: [userId], references: [id], onDelete: Cascade)
+  savedUser     User     @relation("SavedProfile", fields: [savedUserId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, savedUserId])
+  @@index([userId])
+  @@index([savedUserId])
+  @@index([createdAt])
 }

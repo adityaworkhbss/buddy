@@ -152,6 +152,8 @@ export default function LoginComponent() {
         try {
             // Verify OTP
             const verifyResult = await OTP.verifyOtp(confirmationResult, otpDigits);
+            console.log("OTP verification result:", verifyResult);
+            
             if (!verifyResult || verifyResult.success === false) {
                 const errorMsg = verifyResult?.message || verifyResult?.error || "Invalid OTP";
                 setFieldErrors(prev => ({ ...prev, otp: errorMsg }));
@@ -162,6 +164,13 @@ export default function LoginComponent() {
             // Reset password
             const cleaned = resetPhone.replace(/\D/g, "");
             const phone = `+91${cleaned}`;
+
+            console.log("Calling reset password API with:", {
+                phone,
+                hasNewPassword: !!newPassword,
+                sessionId: confirmationResult?.sessionId,
+                hasOtp: !!otpDigits,
+            });
 
             const resetRes = await fetch("/api/user/reset-password", {
                 method: "POST",
@@ -174,7 +183,16 @@ export default function LoginComponent() {
                 }),
             });
 
+            console.log("Reset password API response status:", resetRes.status);
+
+            if (!resetRes.ok) {
+                const errorText = await resetRes.text();
+                console.error("Reset password API error response:", errorText);
+                throw new Error(`API error: ${resetRes.status} - ${errorText}`);
+            }
+
             const resetData = await resetRes.json();
+            console.log("Reset password API response data:", resetData);
 
             if (!resetData.success) {
                 setResetError(resetData.message || "Failed to reset password");
@@ -196,7 +214,17 @@ export default function LoginComponent() {
             resetForgotPasswordForm();
         } catch (err) {
             console.error("Reset password error:", err);
+            console.error("Error details:", {
+                message: err.message,
+                stack: err.stack,
+                name: err.name,
+            });
             setResetError(err.message || "Failed to reset password");
+            toast({
+                title: "Error",
+                description: err.message || "Failed to reset password. Please try again.",
+                variant: "destructive",
+            });
             setFieldErrors(prev => ({ ...prev, otp: err.message || "Verification failed" }));
         } finally {
             setResetting(false);
