@@ -53,6 +53,7 @@ interface HousingPreferences {
   flatTypes: string[];
   roomTypes: string[];
   amenities: string[];
+  locationCoords: [number, number] | null;
 }
 
 interface FlatDetails {
