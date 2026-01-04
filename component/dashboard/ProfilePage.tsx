@@ -123,7 +123,8 @@ const mockUserProfile: UserProfile = {
     searchRadius: "10 km",
     flatTypes: ["1 BHK", "2 BHK"],
     roomTypes: ["Private Room", "Shared Room"],
-    amenities: ["WiFi", "Gym", "Parking"]
+    amenities: ["WiFi", "Gym", "Parking"],
+    locationCoords: null
   },
   flatDetails: {
     address: "402, Sunshine Apartments, Lokhandwala Complex, Andheri West, Mumbai - 400053",
