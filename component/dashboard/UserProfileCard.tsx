@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Bookmark, MapPin, Home, Send, Share2 } from "lucide-react";
+import { Bookmark, MapPin, Home, Send, Share2, MessageCircle } from "lucide-react";
 import { Button } from "@/component/ui/button";
 import { Textarea } from "@/component/ui/textarea";
 import { Badge } from "@/component/ui/badge";

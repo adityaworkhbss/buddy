@@ -12,17 +12,21 @@ export const mockProfiles: Profile[] = [
     myHabits: ["Non-Smoker", "Early Riser", "Vegetarian"],
     flatDetails: {
       address: "123 Park Avenue, Downtown, Mumbai",
-      furnishing: "Fully Furnished",
+      furnishingType: "Fully Furnished",
+      commonAmenities: ["WiFi", "Parking", "Gym"],
+      commonPhotos: [],
       rooms: [
         {
           id: "1",
-          roomType: "private",
-          quantity: "1",
+          type: "private",
+          available: 1,
           rent: "18000",
           securityDeposit: "36000",
           brokerage: "0",
           availableFrom: "2024-02-15",
-          amenities: ["AC", "Attached Bathroom"]
+          furnishingType: "Fully Furnished",
+          amenities: ["AC", "Attached Bathroom"],
+          photos: []
         }
       ]
     }
@@ -44,7 +48,7 @@ export const mockProfiles: Profile[] = [
     profilePicture: "https://randomuser.me/api/portraits/women/28.jpg",
     city: "Mumbai",
     state: "Maharashtra",
-    searchType: "both",
+    searchType: "flatmate",
     myHabits: ["Pet Friendly", "Clean"],
   },
   {
