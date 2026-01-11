@@ -9,6 +9,7 @@ import { MapPin, Briefcase, GraduationCap, Home, Send, Bookmark, Share2, Message
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { StaticMap } from "@/component/ui/static-map";
 
 interface JobExperience {
   id: string;
@@ -54,6 +55,8 @@ export interface Profile {
   educationExperiences?: EducationExperience[];
   flatDetails?: {
     address: string;
+    latitude?: number | null;
+    longitude?: number | null;
     furnishingType: string;
     description?: string;
     commonAmenities: string[];
@@ -84,6 +87,7 @@ export const ProfileCard = ({
   const [isSending, setIsSending] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_KEY || "";
   
   const [message, setMessage] = useState(
     isLookingForFlatmate
@@ -480,27 +484,29 @@ Annual Rent: ${annualRent}`;
       <Separator />
 
       <CardContent className="space-y-6 pt-6 max-h-[calc(100vh-400px)] overflow-y-auto">
-        {/* Flat Details (for flatmate search) */}
-        {isLookingForFlatmate && profile.flatDetails && (
+        {/* Flat Details */}
+        {profile.flatDetails && (
           <div className="space-y-6">
             {/* Flat Details - Address & Map */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-900">
-                <Home className="h-5 w-5 text-pink-500" />
+                <Home className="h-5 w-5 text-red-500" />
                 Flat Details
               </h3>
               
-              <div className="border rounded-lg overflow-hidden bg-gray-50">
-                <div className="grid grid-cols-1 md:grid-cols-5">
+              <Card className="bg-white">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
                   {/* Address & Furnishing */}
-                  <div className="p-4 md:col-span-3 space-y-2">
+                  <div className="p-4 space-y-3">
                     <p className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-1 text-pink-500 flex-shrink-0" />
+                      <MapPin className="h-4 w-4 mt-0.5 text-red-500 flex-shrink-0" />
                       <span className="text-sm text-gray-700">{profile.flatDetails.address}</span>
                     </p>
-                    <div>
-                      <span className="font-medium text-gray-900 text-sm">Furnishing: </span>
-                      <Badge variant="outline">{profile.flatDetails.furnishingType || "Furnished"}</Badge>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-900">Furnishing:</span>
+                      <Badge variant="outline" className="bg-gray-100 text-gray-700">
+                        {profile.flatDetails.furnishingType || "Fully Furnished"}
+                      </Badge>
                     </div>
                     {profile.flatDetails.description && (
                       <p className="text-sm text-gray-600 mt-2">{profile.flatDetails.description}</p>
@@ -508,11 +514,23 @@ Annual Rent: ${annualRent}`;
                   </div>
 
                   {/* Location Map */}
-                  <div className="bg-gray-200 h-32 flex items-center justify-center border-t md:border-t-0 md:border-l border-gray-300 md:col-span-2">
-                    <p className="text-gray-500 text-sm">Map View</p>
+                  <div className="border-l border-gray-200 bg-gray-100" style={{ minHeight: "200px" }}>
+                    {profile.flatDetails.latitude && profile.flatDetails.longitude && mapboxToken ? (
+                      <StaticMap
+                        latitude={profile.flatDetails.latitude}
+                        longitude={profile.flatDetails.longitude}
+                        mapboxToken={mapboxToken}
+                        height="200px"
+                        className="w-full"
+                      />
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <p className="text-gray-500 text-sm">Map View</p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              </Card>
             </div>
 
             {/* Rooms Available */}

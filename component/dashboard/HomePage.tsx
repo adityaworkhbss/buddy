@@ -318,7 +318,9 @@ export const HomePage = () => {
         excludeIds: excludedUserIds.join(","),
       });
 
-      const response = await fetch(`/api/users/discover?${params}`);
+      const response = await fetch(`/api/users/discover?${params}`, {
+        credentials: 'include'
+      });
       const data = await response.json();
 
       if (data.success) {

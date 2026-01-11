@@ -148,6 +148,8 @@ export async function GET(req) {
             })) || [],
             flatDetails: user.housingDetails?.address ? {
                 address: user.housingDetails.address,
+                latitude: user.housingDetails.latitude,
+                longitude: user.housingDetails.longitude,
                 furnishingType: user.housingDetails.description?.toLowerCase().includes("furnished") ? "Furnished" : 
                                 user.housingDetails.description?.toLowerCase().includes("semi") ? "Semi-Furnished" : 
                                 user.housingDetails.description?.toLowerCase().includes("unfurnished") ? "Unfurnished" : "Furnished",
