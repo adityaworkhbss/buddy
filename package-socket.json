@@ -1,0 +1,14 @@
+{
+  "name": "buddy-socket-server",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server/socket-server.js",
+    "postinstall": "npx prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "6.15",
+    "prisma": "6.15",
+    "socket.io": "^4.8.3"
+  }
+}

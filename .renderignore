@@ -1,0 +1,11 @@
+.next
+app
+component
+public
+*.tsx
+*.ts
+!server/**/*.js
+next.config.js
+postcss.config.mjs
+tailwind.config.js
+tsconfig.json
