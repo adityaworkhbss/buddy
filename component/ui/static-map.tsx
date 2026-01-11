@@ -45,8 +45,9 @@ export const StaticMap = ({
 
                 const mapboxgl = (await import("mapbox-gl")).default;
 
-                if (mapboxgl.config) {
-                    mapboxgl.config.COLLECT_MAPBOX_TELEMETRY = false;
+                // Disable Mapbox telemetry (type-safe workaround)
+                if (mapboxgl.config && 'COLLECT_MAPBOX_TELEMETRY' in mapboxgl.config) {
+                    (mapboxgl.config as any).COLLECT_MAPBOX_TELEMETRY = false;
                 }
 
                 mapboxgl.accessToken = mapboxToken;
