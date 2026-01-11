@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, ChevronRight, SlidersHorizontal, CalendarIcon, X } from "lucide-react";
 import { Button } from "@/component/ui/button";
 import { ProfileCard } from "@/component/profile/ProfileCard";
@@ -15,6 +15,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/component/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { LocationMap } from "@/component/map/LocationMap";
 
 interface DiscoveredUser {
   id: string;
@@ -48,6 +49,16 @@ export const HomePage = () => {
   const [conversationStatus, setConversationStatus] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   
+  // Filter location (for search)
+  const [filterLocationName, setFilterLocationName] = useState<string>("");
+  const [filterLatitude, setFilterLatitude] = useState<number | null>(null);
+  const [filterLongitude, setFilterLongitude] = useState<number | null>(null);
+  const [locationSearchQuery, setLocationSearchQuery] = useState<string>("");
+  const [locationSearchResults, setLocationSearchResults] = useState<any[]>([]);
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
+  const locationInputRef = useRef<HTMLInputElement>(null);
+  
   // Mock user search type - in real app, this would come from user profile
   const [searchType] = useState<"Looking for Flat" | "Looking for Flatmate" | "Both">("Both");
   
@@ -68,7 +79,8 @@ export const HomePage = () => {
   
   // Flat filters
   const [locationSearch, setLocationSearch] = useState<string>("");
-  const [locationRange, setLocationRange] = useState([5]);
+  const [locationCoords, setLocationCoords] = useState<[number, number] | null>(null);
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_PUBLIC_KEY || "";
   const [priceRange, setPriceRange] = useState([0, 50000]);
   const [flatType, setFlatType] = useState<string>("");
   const [roomType, setRoomType] = useState<string>("");
@@ -97,6 +109,43 @@ export const HomePage = () => {
     );
   };
 
+  // Location search for filter
+  const searchLocation = useCallback(async (query: string) => {
+    if (!query.trim() || !mapboxToken) {
+      setLocationSearchResults([]);
+      return;
+    }
+
+    setIsSearchingLocation(true);
+    try {
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+        query
+      )}.json?access_token=${mapboxToken}&autocomplete=true&limit=5`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.features) {
+        setLocationSearchResults(data.features);
+      }
+    } catch (error) {
+      console.error("Error searching location:", error);
+      setLocationSearchResults([]);
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  }, [mapboxToken]);
+
+  // Handle location selection for filter
+  const handleSelectFilterLocation = (place: any) => {
+    const coords = place.center; // [lng, lat]
+    setFilterLocationName(place.place_name);
+    setFilterLatitude(coords[1]); // lat
+    setFilterLongitude(coords[0]); // lng
+    setLocationSearchQuery(place.place_name);
+    setLocationSearchResults([]);
+  };
+
   // Get current user location and fetch initial users
   useEffect(() => {
     fetchUserLocationAndDiscover();
@@ -115,6 +164,39 @@ export const HomePage = () => {
       loadMoreUsers();
     }
   }, [currentIndex, profiles.length, hasMore]);
+
+  // Debounce location search
+  useEffect(() => {
+    if (!locationSearchQuery.trim() || !mapboxToken) {
+      setLocationSearchResults([]);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      searchLocation(locationSearchQuery);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [locationSearchQuery, searchLocation, mapboxToken]);
+
+  // Close location dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        locationDropdownRef.current &&
+        !locationDropdownRef.current.contains(event.target as Node) &&
+        locationInputRef.current &&
+        !locationInputRef.current.contains(event.target as Node)
+      ) {
+        setLocationSearchResults([]);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Keyboard navigation
   useEffect(() => {
@@ -151,7 +233,54 @@ export const HomePage = () => {
           setUserLocation({ lat: housing.latitude, lon: housing.longitude });
           const userSearchRadius = housing.searchRadius || 10;
           setSearchRadius(userSearchRadius);
-          await discoverUsers(housing.latitude, housing.longitude, userSearchRadius, 0);
+          
+          // Load saved filters from database
+          try {
+            const filtersResponse = await fetch("/api/user/filters");
+            const filtersData = await filtersResponse.json();
+            
+            if (filtersData.success && filtersData.filters) {
+              const filters = filtersData.filters;
+              
+              // Set filter values from database
+              if (filters.searchRadius !== null) setSearchRadius(filters.searchRadius);
+              if (filters.filterLocationName) setFilterLocationName(filters.filterLocationName);
+              if (filters.filterLatitude) setFilterLatitude(filters.filterLatitude);
+              if (filters.filterLongitude) setFilterLongitude(filters.filterLongitude);
+              if (filters.filterLocationName) setLocationSearchQuery(filters.filterLocationName);
+              if (filters.flatmateAgeRange && filters.flatmateAgeRange.length === 2) {
+                setFlatmateAgeRange(filters.flatmateAgeRange);
+              }
+              if (filters.flatmateHabits) setFlatmateHabits(filters.flatmateHabits);
+              if (filters.flatmateMoveInDate) setFlatmateMoveInDate(new Date(filters.flatmateMoveInDate));
+              if (filters.locationSearch) setLocationSearch(filters.locationSearch);
+              if (filters.locationCoords && Array.isArray(filters.locationCoords) && filters.locationCoords.length === 2) {
+                setLocationCoords([filters.locationCoords[0], filters.locationCoords[1]]);
+              }
+              if (filters.priceRange && filters.priceRange.length === 2) {
+                setPriceRange(filters.priceRange);
+              }
+              if (filters.flatType) setFlatType(filters.flatType);
+              if (filters.roomType) setRoomType(filters.roomType);
+              if (filters.availableFrom) setAvailableFrom(new Date(filters.availableFrom));
+              if (filters.brokerage) setBrokerage(filters.brokerage);
+              if (filters.securityDeposit) setSecurityDeposit(filters.securityDeposit);
+              if (filters.roomAmenities) setRoomAmenities(filters.roomAmenities);
+              if (filters.commonAreaAmenities) setCommonAreaAmenities(filters.commonAreaAmenities);
+              
+              // Use filter location if available, otherwise use user's default location
+              const searchLat = filters.filterLatitude || housing.latitude;
+              const searchLon = filters.filterLongitude || housing.longitude;
+              const searchRadiusValue = filters.searchRadius !== null ? filters.searchRadius : userSearchRadius;
+              
+              await discoverUsers(searchLat, searchLon, searchRadiusValue, 0);
+            } else {
+              await discoverUsers(housing.latitude, housing.longitude, userSearchRadius, 0);
+            }
+          } catch (filterError) {
+            console.error("Error loading filters:", filterError);
+            await discoverUsers(housing.latitude, housing.longitude, userSearchRadius, 0);
+          }
         } else {
           toast({
             title: "Location Required",
@@ -215,11 +344,28 @@ export const HomePage = () => {
   };
 
   const loadMoreUsers = async () => {
-    if (!userLocation || loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore) return;
+
+    // Get location to use - filter location if available, otherwise user default location
+    const meResponse = await fetch("/api/user/me");
+    const meData = await meResponse.json();
+    
+    if (!meData.success) return;
+
+    const profileResponse = await fetch(`/api/user/profile?userId=${meData.user.id}`);
+    const profileData = await profileResponse.json();
+
+    if (!profileData.success || !profileData.profile?.housingDetails?.latitude || !profileData.profile?.housingDetails?.longitude) {
+      return;
+    }
+
+    const housing = profileData.profile.housingDetails;
+    const searchLat = filterLatitude || housing.latitude;
+    const searchLon = filterLongitude || housing.longitude;
 
     try {
       setLoadingMore(true);
-      await discoverUsers(userLocation.lat, userLocation.lon, searchRadius, profiles.length);
+      await discoverUsers(searchLat, searchLon, searchRadius, profiles.length);
     } catch (error) {
       console.error("Error loading more users:", error);
     } finally {
@@ -270,54 +416,85 @@ export const HomePage = () => {
 
   const handleApplyFilters = async () => {
     setIsFilterOpen(false);
-    if (userLocation) {
-      setLoading(true);
-      setProfiles([]);
-      setCurrentIndex(0);
-      setExcludedUserIds([]);
-      
-      // Save search radius to user profile
-      try {
-        const meResponse = await fetch("/api/user/me");
-        const meData = await meResponse.json();
-        if (meData.success && meData.user) {
-          const profileResponse = await fetch(`/api/user/profile?userId=${meData.user.id}`);
-          const profileData = await profileResponse.json();
-          
-          if (profileData.success && profileData.profile?.housingDetails) {
-            const housing = profileData.profile.housingDetails;
-            const formData = new FormData();
-            formData.append("phone", meData.user.phone);
-            formData.append("personalInfo", JSON.stringify({}));
-            formData.append("housingDetails", JSON.stringify({
-              searchType: housing.lookingFor || "Open To Both",
-              location: housing.preferenceLocation || "",
-              locationCoords: housing.latitude && housing.longitude 
-                ? [housing.longitude, housing.latitude] 
-                : null,
-              radius: searchRadius,
-              budget: housing.budgetMin && housing.budgetMax 
-                ? [housing.budgetMin, housing.budgetMax] 
-                : [10000, 25000],
-              movingDate: housing.movingDate || "",
-              roomType: housing.roomType || "",
-              amenityPreferences: housing.preferredAmenities || [],
-              flatDetails: {},
-            }));
-            
-            await fetch("/api/user/update-profile", {
-              method: "PUT",
-              body: formData,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Error saving search radius:", error);
-      }
-      
-      await discoverUsers(userLocation.lat, userLocation.lon, searchRadius, 0);
-      setLoading(false);
+    // Use filter location if available, otherwise use user's default location
+    const meResponse = await fetch("/api/user/me");
+    const meData = await meResponse.json();
+    
+    if (!meData.success) {
+      toast({
+        title: "Error",
+        description: "Failed to get user information.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    const profileResponse = await fetch(`/api/user/profile?userId=${meData.user.id}`);
+    const profileData = await profileResponse.json();
+
+    if (!profileData.success || !profileData.profile?.housingDetails?.latitude || !profileData.profile?.housingDetails?.longitude) {
+      toast({
+        title: "Error",
+        description: "Please update your profile location to discover users nearby.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const housing = profileData.profile.housingDetails;
+    
+    // Use filter location if available, otherwise use user's default location
+    const searchLat = filterLatitude || housing.latitude;
+    const searchLon = filterLongitude || housing.longitude;
+
+    setLoading(true);
+    setProfiles([]);
+    setCurrentIndex(0);
+    setExcludedUserIds([]);
+    
+    // Save filters to database
+    try {
+      const filtersResponse = await fetch("/api/user/filters", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          searchRadius,
+          filterLocationName,
+          filterLatitude,
+          filterLongitude,
+          flatmateAgeRange,
+          flatmateHabits,
+          flatmateMoveInDate: flatmateMoveInDate ? flatmateMoveInDate.toISOString() : null,
+          locationSearch,
+          locationCoords,
+          priceRange,
+          flatType,
+          roomType,
+          availableFrom: availableFrom ? availableFrom.toISOString() : null,
+          brokerage,
+          securityDeposit,
+          roomAmenities,
+          commonAreaAmenities,
+        }),
+      });
+
+      const filtersData = await filtersResponse.json();
+      if (!filtersData.success) {
+        console.error("Error saving filters:", filtersData.message);
+      }
+    } catch (error) {
+      console.error("Error saving filters:", error);
+      toast({
+        title: "Warning",
+        description: "Filters applied but failed to save. They will be reset on next page load.",
+        variant: "destructive",
+      });
+    }
+    
+    await discoverUsers(searchLat, searchLon, searchRadius, 0);
+    setLoading(false);
   };
 
   if (loading) {
@@ -371,7 +548,7 @@ export const HomePage = () => {
 
       {/* Filter Dialog */}
       <Dialog open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <SlidersHorizontal className="w-5 h-5" />
@@ -380,6 +557,51 @@ export const HomePage = () => {
           </DialogHeader>
           
           <div className="space-y-4 mt-4">
+            {/* Filter Location Search */}
+            <Card className="p-4">
+              <div className="space-y-2">
+                <Label>Search Location</Label>
+                <div className="relative" ref={locationDropdownRef}>
+                  <input
+                    ref={locationInputRef}
+                    type="text"
+                    placeholder="Search for location (optional - uses your default address if not set)"
+                    value={locationSearchQuery}
+                    onChange={(e) => setLocationSearchQuery(e.target.value)}
+                    className="w-full px-3 py-2 border border-input rounded-md bg-white text-sm pr-10"
+                  />
+                  {isSearchingLocation && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 border-2 border-pink-600 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {locationSearchResults.length > 0 && (
+                    <div className="absolute z-50 bg-white border rounded-lg w-full mt-1 shadow-lg max-h-60 overflow-y-auto">
+                      {locationSearchResults.map((place) => (
+                        <div
+                          key={place.id}
+                          onClick={() => handleSelectFilterLocation(place)}
+                          className="p-3 hover:bg-gray-100 cursor-pointer text-sm border-b last:border-b-0 transition-colors"
+                        >
+                          <div className="font-medium text-gray-900">{place.place_name}</div>
+                          {place.context && place.context.length > 0 && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              {place.context.map((ctx: any) => ctx.text).join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {filterLocationName && (
+                  <p className="text-xs text-gray-600 mt-1">
+                    Selected: {filterLocationName}
+                  </p>
+                )}
+              </div>
+            </Card>
+            
             {/* Looking for Flatmate Filters */}
             {(searchType === "Looking for Flatmate" || searchType === "Both") && (
               <Card className="p-4">
@@ -387,13 +609,19 @@ export const HomePage = () => {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <Label>Age Range: {flatmateAgeRange[0]} - {flatmateAgeRange[1]}</Label>
-                    <Slider
-                      value={flatmateAgeRange}
-                      onValueChange={setFlatmateAgeRange}
-                      min={18}
-                      max={70}
-                      step={1}
-                    />
+                    <div className="relative">
+                      <Slider
+                        value={flatmateAgeRange}
+                        onValueChange={setFlatmateAgeRange}
+                        min={18}
+                        max={70}
+                        step={1}
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>18</span>
+                        <span>70</span>
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
@@ -455,23 +683,28 @@ export const HomePage = () => {
                       placeholder="Search location..."
                       value={locationSearch}
                       onChange={(e) => setLocationSearch(e.target.value)}
-                      className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                      className="w-full px-3 py-2 border border-input rounded-md bg-white text-sm"
                     />
-                    <div className="h-40 bg-muted rounded-md flex items-center justify-center text-muted-foreground text-sm">
-                      Map Preview (Mapbox integration pending)
-                    </div>
-                  </div>
-                  
-                  {/* Range Selection */}
-                  <div className="space-y-2">
-                    <Label>Search Radius: {searchRadius} km</Label>
-                    <Slider
-                      value={[searchRadius]}
-                      onValueChange={(value) => setSearchRadius(value[0])}
-                      min={1}
-                      max={50}
-                      step={1}
-                    />
+                    {mapboxToken ? (
+                      <div className="h-64 rounded-md overflow-hidden border">
+                        <LocationMap
+                          location={locationSearch}
+                          radius={searchRadius}
+                          onLocationChange={(locationName: string, coords: [number, number]) => {
+                            setLocationSearch(locationName);
+                            setLocationCoords(coords);
+                          }}
+                          onRadiusChange={(radius: number) => {
+                            setSearchRadius(radius);
+                          }}
+                          mapboxToken={mapboxToken}
+                        />
+                      </div>
+                    ) : (
+                      <div className="h-40 bg-gray-100 rounded-md flex items-center justify-center text-gray-500 text-sm border">
+                        Mapbox token not configured. Please set NEXT_PUBLIC_MAPBOX_PUBLIC_KEY in your .env file
+                      </div>
+                    )}
                   </div>
                   
                   {/* Flat Type, Room Type, Available From - Side by Side */}

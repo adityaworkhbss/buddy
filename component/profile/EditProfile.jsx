@@ -1271,7 +1271,7 @@ export default function EditProfile({ onSave }) {
                             )}
                             
                             {otpError && (
-                                <div className="p-2 bg-red-50 border border-red-200 rounded-md">
+                                <div className="p-2 bg-white border border-red-200 rounded-md">
                                     <p className="text-xs text-red-600">{otpError}</p>
                                 </div>
                             )}

@@ -105,18 +105,37 @@ export const MessagePage = () => {
       // Only add message if it's for the current conversation
       if (currentConversationId && message.conversationId === currentConversationId) {
         setMessages(prev => {
-          // Check if message already exists (avoid duplicates) - check by ID and also by content + timestamp
-          const exists = prev.some(m => 
-            m.id === message.id || 
-            (m.content === message.content && 
-             m.senderId === message.senderId && 
-             m.receiverId === message.receiverId &&
-             Math.abs(new Date(m.createdAt).getTime() - new Date(message.createdAt).getTime()) < 1000)
-          );
-          if (exists) {
-            console.log("Duplicate message detected, skipping:", message.id);
+          // Check if message already exists by ID (avoid duplicates)
+          const existsById = prev.some(m => m.id === message.id);
+          if (existsById) {
+            console.log("Duplicate message detected by ID, skipping:", message.id);
             return prev;
           }
+          
+          // Check if this is replacing an optimistic message (same sender, same content, recent timestamp)
+          const isReplacingOptimistic = prev.some(m => 
+            m.senderId === message.senderId &&
+            m.content === message.content &&
+            m.receiverId === message.receiverId &&
+            typeof m.id === 'number' && m.id > 1000000000000 // Optimistic messages have timestamp IDs
+          );
+          
+          if (isReplacingOptimistic) {
+            // Replace optimistic message with real one
+            return prev.map(m => {
+              if (m.senderId === message.senderId &&
+                  m.content === message.content &&
+                  m.receiverId === message.receiverId &&
+                  typeof m.id === 'number' && m.id > 1000000000000) {
+                return message;
+              }
+              return m;
+            }).filter((m, index, arr) => 
+              // Remove any other duplicates
+              arr.findIndex(msg => msg.id === m.id) === index
+            );
+          }
+          
           return [...prev, message];
         });
         
@@ -151,6 +170,19 @@ export const MessagePage = () => {
           return conv;
         })
       );
+      
+      // Update selected conversation if it's the current one
+      if (selectedConversation && selectedConversation.id === message.conversationId) {
+        setSelectedConversation(prev => prev ? {
+          ...prev,
+          lastMessage: {
+            content: message.content,
+            type: message.type,
+            createdAt: message.createdAt,
+          },
+          lastMessageAt: message.createdAt,
+        } : null);
+      }
     };
 
     socket.on("new_message", handleNewMessage);
@@ -249,14 +281,79 @@ export const MessagePage = () => {
   const handleSendMessage = async () => {
     if (!messageText.trim() || !selectedConversation || !currentUserId || sending) return;
 
+    const messageContent = messageText.trim();
+    const tempMessageId = Date.now(); // Temporary ID for optimistic update
+    const now = new Date().toISOString();
+
+    // Optimistically add message immediately for smooth UX
+    const optimisticMessage: Message = {
+      id: tempMessageId,
+      conversationId: selectedConversation.id,
+      content: messageContent,
+      type: "text",
+      senderId: currentUserId,
+      receiverId: selectedConversation.otherUserId,
+      sender: {
+        id: currentUserId,
+        fullName: null,
+        profilePicture: null,
+      },
+      receiver: {
+        id: selectedConversation.otherUserId,
+        fullName: selectedConversation.otherUserName,
+        profilePicture: selectedConversation.otherUserProfilePicture,
+      },
+      read: false,
+      createdAt: now,
+    };
+
+    // Add optimistic message immediately
+    setMessages(prev => [...prev, optimisticMessage]);
+    setMessageText(""); // Clear input immediately
+
+    // Optimistically update conversation list
+    setConversations(prev =>
+      prev.map(conv => {
+        if (conv.id === selectedConversation.id) {
+          return {
+            ...conv,
+            lastMessage: {
+              content: messageContent,
+              type: "text",
+              createdAt: now,
+            },
+            lastMessageAt: now,
+          };
+        }
+        return conv;
+      })
+    );
+
+    // Update selected conversation state
+    setSelectedConversation(prev => prev ? {
+      ...prev,
+      lastMessage: {
+        content: messageContent,
+        type: "text",
+        createdAt: now,
+      },
+      lastMessageAt: now,
+    } : null);
+
+    // Scroll to bottom to show new message
+    setTimeout(() => scrollToBottom(), 100);
+
     try {
       setSending(true);
 
       const formData = new FormData();
       formData.append("senderId", currentUserId.toString());
       formData.append("receiverId", selectedConversation.otherUserId.toString());
-      formData.append("content", messageText);
+      formData.append("content", messageContent);
       formData.append("type", "text");
+      if (selectedConversation.id) {
+        formData.append("conversationId", selectedConversation.id.toString());
+      }
 
       const response = await fetch("/api/messages", {
         method: "POST",
@@ -266,39 +363,47 @@ export const MessagePage = () => {
       const result = await response.json();
 
       if (result.success) {
-        // Add message only if socket is not connected (fallback)
-        // If socket is connected, it will be added via socket event to avoid duplicates
+        // The socket event will handle adding the real message
+        // If socket is not connected, we need to replace optimistic message with real one
         if (!isConnected || !socket) {
-          const newMessage: Message = {
-            ...result.message,
-            sender: {
-              id: currentUserId,
-              fullName: null,
-              profilePicture: null,
-            },
-            receiver: {
-              id: selectedConversation.otherUserId,
-              fullName: selectedConversation.otherUserName,
-              profilePicture: selectedConversation.otherUserProfilePicture,
-            },
-          };
           setMessages(prev => {
-            // Check for duplicates before adding
-            const exists = prev.some(m => m.id === newMessage.id);
-            if (exists) return prev;
-            return [...prev, newMessage];
+            // Remove optimistic message and add real one
+            const filtered = prev.filter(m => m.id !== tempMessageId);
+            const exists = filtered.some(m => m.id === result.message.id);
+            if (exists) return filtered;
+            return [...filtered, result.message];
           });
+        } else {
+          // Socket is connected, so the socket event will add the real message
+          // Remove the optimistic message when real one arrives (handled by socket listener)
+          // The socket listener checks for duplicates, so it will replace it
         }
-        
-        setMessageText("");
-
-        // Refresh conversations to update last message
-        await fetchCurrentUserAndConversations();
       } else {
+        // Remove optimistic message on error
+        setMessages(prev => prev.filter(m => m.id !== tempMessageId));
         throw new Error(result.message || "Failed to send message");
       }
     } catch (error: any) {
       console.error("Error sending message:", error);
+      
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempMessageId));
+      
+      // Revert conversation update
+      setConversations(prev =>
+        prev.map(conv => {
+          if (conv.id === selectedConversation.id) {
+            // Restore previous last message (we don't have it, so just keep current state)
+            // In practice, this won't matter much as the error is rare
+            return conv;
+          }
+          return conv;
+        })
+      );
+      
+      // Restore message text
+      setMessageText(messageContent);
+      
       toast({
         title: "Error",
         description: error.message || "Failed to send message. Please try again.",

@@ -35,6 +35,7 @@ model User {
   sessions         Session[]
   savedProfiles    SavedProfile[]      @relation("SavedByUser")
   savedByUsers     SavedProfile[]      @relation("SavedProfile")
+  filters          UserFilter?
 }
 
 model WorkExperience {
@@ -181,4 +182,32 @@ model SavedProfile {
   @@index([userId])
   @@index([savedUserId])
   @@index([createdAt])
+}
+
+model UserFilter {
+  id                    Int       @id @default(autoincrement())
+  userId                Int       @unique
+  searchRadius          Int?
+  filterLocationName    String?
+  filterLatitude        Float?
+  filterLongitude       Float?
+  flatmateAgeRange      Int[]     @default([])
+  flatmateHabits        String[]  @default([])
+  flatmateMoveInDate    DateTime?
+  locationSearch        String?
+  locationCoords        Json?     // [longitude, latitude]
+  priceRange            Int[]     @default([])
+  flatType              String?
+  roomType              String?
+  availableFrom         DateTime?
+  brokerage             String?
+  securityDeposit       String?
+  roomAmenities         String[]  @default([])
+  commonAreaAmenities   String[]  @default([])
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
 }
