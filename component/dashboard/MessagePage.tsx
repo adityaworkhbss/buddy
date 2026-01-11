@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Filter, Send, ChevronDown, MoreVertical, Smile, Paperclip } from "lucide-react";
+import { Search, Filter, Send, ChevronDown, Smile, Paperclip, User } from "lucide-react";
 import { Input } from "@/component/ui/input";
 import { Button } from "@/component/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/component/ui/avatar";
@@ -61,6 +61,7 @@ export const MessagePage = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
@@ -275,6 +276,35 @@ export const MessagePage = () => {
       );
     } catch (error) {
       console.error("Error marking messages as read:", error);
+    }
+  };
+
+  const handleViewProfile = async () => {
+    if (!selectedConversation || isLoadingProfile) return;
+
+    try {
+      setIsLoadingProfile(true);
+
+      // Get share URL for the other user's profile
+      const shareResponse = await fetch(`/api/user/share?userId=${selectedConversation.otherUserId}`);
+      const shareData = await shareResponse.json();
+
+      if (shareData.success && shareData.shareUrl) {
+        // Extract the path from the full URL (API returns full URL, router.push needs relative path)
+        const url = new URL(shareData.shareUrl);
+        router.push(url.pathname);
+      } else {
+        throw new Error(shareData.message || "Failed to get share link");
+      }
+    } catch (error: any) {
+      console.error("Error opening profile:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to open profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingProfile(false);
     }
   };
 
@@ -610,10 +640,12 @@ export const MessagePage = () => {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-8 w-8"
-                onClick={() => router.push(`/dashboard?view=profile&userId=${selectedConversation.otherUserId}`)}
+                className="text-gray-600 hover:text-gray-900"
+                onClick={handleViewProfile}
+                disabled={isLoadingProfile}
+                title="View Profile"
               >
-                <MoreVertical className="h-5 w-5 text-gray-600" />
+                <User className={`w-5 h-5 ${isLoadingProfile ? "animate-spin" : ""}`} />
               </Button>
             </div>
 
