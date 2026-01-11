@@ -9,8 +9,6 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
-      - key: SOCKET_PORT
-        value: 3001
       - key: NODE_ENV
         value: production
       - key: SKIP_NEXT_BUILD

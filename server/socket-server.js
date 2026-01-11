@@ -18,9 +18,29 @@ const prisma = new PrismaClient();
 const server = http.createServer();
 
 // Initialize Socket.IO
+// Allow multiple origins for CORS (Vercel app + localhost for development)
+const allowedOrigins = process.env.FRONTEND_URL 
+    ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+    : ["http://localhost:3000"];
+
 const io = new Server(server, {
     cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:3000",
+        origin: (origin, callback) => {
+            // Allow requests with no origin (like mobile apps, Postman, etc.)
+            if (!origin) return callback(null, true);
+            
+            // Check if origin is in allowed list
+            if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+                callback(null, true);
+            } else {
+                // For development, allow any localhost
+                if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+                    callback(null, true);
+                } else {
+                    callback(new Error('Not allowed by CORS'));
+                }
+            }
+        },
         methods: ["GET", "POST"],
         credentials: true,
     },
@@ -249,9 +269,11 @@ io.on("connection", (socket) => {
 });
 
 // Start server
-const PORT = process.env.SOCKET_PORT || 3001;
-server.listen(PORT, () => {
+// Render provides PORT environment variable, fallback to SOCKET_PORT or 3001
+const PORT = process.env.PORT || process.env.SOCKET_PORT || 3001;
+server.listen(PORT, '0.0.0.0', () => {
     console.log(`Socket.IO server running on port ${PORT}`);
+    console.log(`CORS enabled for: ${allowedOrigins.join(', ')}`);
 });
 
 // Graceful shutdown
