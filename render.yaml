@@ -2,7 +2,7 @@ services:
   - type: web
     name: buddy-socket-server
     env: node
-    buildCommand: npm install && npx prisma generate
+    buildCommand: npm install && SKIP_NEXT_BUILD=true npm run build
     startCommand: node server/socket-server.js
     envVars:
       - key: DATABASE_URL
