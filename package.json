@@ -9,13 +9,14 @@
     "lint": "eslint",
     "socket": "node server/socket-server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run socket\"",
-    "postinstall": "prisma generate"
+    "postinstall": "npx prisma generate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.940.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@mapbox/mapbox-gl-geocoder": "^5.1.2",
     "@prisma/client": "6.15",
+    "prisma": "6.15",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.2",
     "@radix-ui/react-aspect-ratio": "^1.1.0",
@@ -81,7 +82,6 @@
     "eslint-config-next": "^16.0.10",
     "mapbox-gl": "^3.16.0",
     "next-themes": "^0.4.4",
-    "prisma": "6.15",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4",
     "typescript": "^5"
