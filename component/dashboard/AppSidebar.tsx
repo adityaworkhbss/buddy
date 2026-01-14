@@ -65,7 +65,7 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
 
     return (
         <>
-            <div className="fixed left-0 top-0 h-screen w-[8%] bg-gray-800 border-r border-gray-700 flex flex-col z-50">
+            <div className="fixed left-0 top-0 h-screen w-[7%] bg-gray-800 border-r border-gray-700 flex flex-col z-50">
                 {/* Logo/Brand at top */}
                 <div className="pt-4 pb-4 flex items-center justify-center">
                     <div className="w-10 h-10 bg-pink-500 rounded-lg flex items-center justify-center">

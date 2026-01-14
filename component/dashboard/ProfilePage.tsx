@@ -755,12 +755,10 @@ export const ProfilePage = () => {
                 {isCopied ? (
                   <>
                     <Check className="w-4 h-4 mr-2" />
-                    Copied
                   </>
                 ) : (
                   <>
                     <Copy className="w-4 h-4 mr-2" />
-                    Copy
                   </>
                 )}
               </Button>

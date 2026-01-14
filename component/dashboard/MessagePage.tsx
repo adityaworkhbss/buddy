@@ -47,6 +47,10 @@ interface Message {
   };
   read: boolean;
   createdAt: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  fileSize?: number | null;
+  fileType?: string | null;
 }
 
 export const MessagePage = () => {
@@ -65,6 +69,10 @@ export const MessagePage = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [currentConversationId, setCurrentConversationId] = useState<number | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // Initialize socket connection
   const { socket, isConnected } = useSocket(currentUserId);
@@ -95,6 +103,48 @@ export const MessagePage = () => {
       }
     }
   }, [selectedConversation, currentUserId, socket, isConnected]);
+
+  // Listen for read status updates
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMessagesRead = (data: { conversationId: number; userId: number }) => {
+      if (currentConversationId && data.conversationId === currentConversationId) {
+        // Update read status for messages sent by current user to the other user
+        setMessages(prev =>
+          prev.map(msg => {
+            if (msg.senderId === currentUserId && msg.receiverId === data.userId) {
+              return { ...msg, read: true };
+            }
+            return msg;
+          })
+        );
+      }
+    };
+
+    socket.on("messages_read", handleMessagesRead);
+
+    return () => {
+      socket.off("messages_read", handleMessagesRead);
+    };
+  }, [socket, currentConversationId, currentUserId]);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target as Node)
+      ) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Listen for real-time messages via socket
   useEffect(() => {
@@ -307,6 +357,116 @@ export const MessagePage = () => {
       setIsLoadingProfile(false);
     }
   };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedConversation || !currentUserId) return;
+
+    // Check if file is an image
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file only.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 10MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setUploadingFile(true);
+
+      // Upload to Cloudinary
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "messages");
+
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const uploadData = await uploadResponse.json();
+
+      if (!uploadData.success) {
+        throw new Error(uploadData.message || "Failed to upload image");
+      }
+
+      // Send message with image
+      const messageFormData = new FormData();
+      messageFormData.append("senderId", currentUserId.toString());
+      messageFormData.append("receiverId", selectedConversation.otherUserId.toString());
+      messageFormData.append("content", "");
+      messageFormData.append("type", "image");
+      messageFormData.append("fileUrl", uploadData.url);
+      messageFormData.append("fileName", file.name);
+      messageFormData.append("fileSize", file.size.toString());
+      messageFormData.append("fileType", file.type);
+      if (selectedConversation.id) {
+        messageFormData.append("conversationId", selectedConversation.id.toString());
+      }
+
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        body: messageFormData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // The socket event will handle adding the real message
+        if (!isConnected || !socket) {
+          setMessages(prev => {
+            const exists = prev.some(m => m.id === result.message.id);
+            if (exists) return prev;
+            return [...prev, result.message];
+          });
+        }
+      } else {
+        throw new Error(result.message || "Failed to send image");
+      }
+    } catch (error: any) {
+      console.error("Error sending image:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFile(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const handleEmojiSelect = (emoji: string) => {
+    setMessageText(prev => prev + emoji);
+    setShowEmojiPicker(false);
+  };
+
+  const commonEmojis = [
+    "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
+    "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰",
+    "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜",
+    "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏",
+    "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣",
+    "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠",
+    "👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "👏",
+    "🙌", "👐", "🤲", "🤝", "🙏", "✍️", "💪", "🦾",
+    "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
+    "💯", "🔥", "⭐", "🌟", "✨", "💫", "🎉", "🎊",
+  ];
 
   const handleSendMessage = async () => {
     if (!messageText.trim() || !selectedConversation || !currentUserId || sending) return;
@@ -677,16 +837,41 @@ export const MessagePage = () => {
                               : "bg-white text-gray-900 shadow-sm"
                           )}
                         >
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          {message.type === "image" && message.fileUrl ? (
+                            <div className="mb-2">
+                              <img
+                                src={message.fileUrl}
+                                alt={message.fileName || "Image"}
+                                className="max-w-full h-auto rounded-lg cursor-pointer"
+                                onClick={() => window.open(message.fileUrl || "", "_blank")}
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                          )}
                           <p
                             className={cn(
-                              "text-xs mt-1",
+                              "text-xs mt-1 flex items-center gap-1",
                               isUserMessage ? "text-pink-100" : "text-gray-500"
                             )}
                           >
-                            {format(new Date(message.createdAt), "h:mm a")}
-                            {isUserMessage && message.read && (
-                              <span className="ml-1">✓✓</span>
+                            <span>{format(new Date(message.createdAt), "h:mm a")}</span>
+                            {isUserMessage && (
+                              <span className={cn(
+                                "ml-1 text-sm inline-flex items-center",
+                                message.read ? "text-blue-200" : "text-pink-100"
+                              )}>
+                                {message.read ? (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                      <path d="M1.5 13.5L4.5 16.5L12 8.5" stroke="#FC8EAC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                      <path d="M8 12.5L12 16.5L22 4.5" stroke="#FFD1DC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                ) : (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                      <path d="M8 12.5L12 16.5L22 4.5" stroke="#FFD1DC" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                )}
+                              </span>
                             )}
                           </p>
                         </div>
@@ -699,12 +884,54 @@ export const MessagePage = () => {
             </ScrollArea>
 
             {/* Message Input Area */}
-            <div className="bg-white border-t border-gray-200 px-4 py-3">
+            <div className="bg-white border-t border-gray-200 px-4 py-3 relative">
+              {/* Emoji Picker */}
+              {showEmojiPicker && (
+                <div
+                  ref={emojiPickerRef}
+                  className="absolute bottom-full left-4 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64 h-48 overflow-y-auto z-50"
+                >
+                  <div className="grid grid-cols-8 gap-1">
+                    {commonEmojis.map((emoji, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleEmojiSelect(emoji)}
+                        className="text-2xl hover:bg-gray-100 rounded p-1 transition-colors"
+                        type="button"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-gray-600"
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  type="button"
+                >
                   <Smile className="h-5 w-5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-gray-600"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingFile}
+                  type="button"
+                >
                   <Paperclip className="h-5 w-5" />
                 </Button>
                 <Input
@@ -724,7 +951,7 @@ export const MessagePage = () => {
                   onClick={handleSendMessage}
                   className="bg-pink-500 hover:bg-pink-600 text-white h-8 w-8 p-0"
                   size="icon"
-                  disabled={sending || !messageText.trim()}
+                  disabled={sending || uploadingFile || !messageText.trim()}
                 >
                   <Send className="h-4 w-4" />
                 </Button>

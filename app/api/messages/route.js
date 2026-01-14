@@ -188,6 +188,15 @@ export async function PUT(req) {
             },
         });
 
+        // Broadcast read status via socket
+        try {
+            const { broadcastMessagesRead } = await import("../../../lib/socket-client");
+            broadcastMessagesRead(parseInt(conversationId), parseInt(userId));
+        } catch (socketError) {
+            // Don't fail the request if socket emission fails
+            console.error("Error emitting socket event:", socketError);
+        }
+
         return NextResponse.json({
             success: true,
             updatedCount: result.count,

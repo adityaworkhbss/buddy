@@ -140,10 +140,10 @@ const Dashboard = () => {
 
     return (
         <div className="flex min-h-screen w-full bg-white">
-            <div className="w-[8%] flex-shrink-0">
+            <div className="w-[7%] flex-shrink-0">
                 <AppSidebar activeView={activeView} onViewChange={setActiveView} />
             </div>
-            <main className="w-[92%] flex-shrink-0 ">
+            <main className="w-[93%] flex-shrink-0 ">
                 {renderContent()}
             </main>
         </div>

@@ -522,19 +522,7 @@ export const HomePage = () => {
     );
   }
 
-  if (profiles.length === 0) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-[#f6f2ff]">
-        <div className="text-center max-w-md mx-auto p-8 bg-white rounded-lg shadow-md">
-          <p className="text-gray-600 mb-4">
-            No users found within {searchRadius}km radius. Try increasing the search radius.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const currentProfile = profiles[currentIndex];
+  const currentProfile = profiles.length > 0 ? profiles[currentIndex] : null;
 
   return (
     <div className="h-screen flex flex-col relative bg-[#f6f2ff]">
@@ -851,82 +839,92 @@ export const HomePage = () => {
       </Dialog>
 
       {/* Profile Cards Section */}
-      <div className="flex-1 flex items-center relative">
-        {/* Left Navigation Button */}
-        <div className="flex-shrink-0 w-12 flex items-center justify-center">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-12 w-12 rounded-full shadow-lg"
-            onClick={handlePrevious}
-            disabled={currentIndex === 0 || isAnimating}
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
+      {profiles.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto p-8 bg-white rounded-lg shadow-md">
+            <p className="text-gray-600 mb-4">
+              No users found within {searchRadius}km radius. Try adjusting your filters or increasing the search radius.
+            </p>
+          </div>
         </div>
-
-        {/* Profile Card - Stretched to fill space */}
-        <div className="flex-1 h-full flex items-center justify-center py-8 px-2">
-          {currentProfile && (
-            <div
-              className={
-                animationDirection === "left"
-                  ? "animate-slide-out-left w-full"
-                  : animationDirection === "right"
-                  ? "animate-slide-out-right w-full"
-                  : "animate-slide-in w-full"
-              }
+      ) : (
+        <div className="flex-1 flex items-center relative">
+          {/* Left Navigation Button */}
+          <div className="flex-shrink-0 w-12 flex items-center justify-center">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-full shadow-lg"
+              onClick={handlePrevious}
+              disabled={currentIndex === 0 || isAnimating}
             >
-              <ProfileCard 
-                profile={{
-                  id: currentProfile.id,
-                  name: currentProfile.name,
-                  age: currentProfile.age,
-                  city: currentProfile.city,
-                  state: currentProfile.state,
-                  profilePicture: currentProfile.profilePicture,
-                  searchType: currentProfile.searchType as "flat" | "flatmate",
-                  myHabits: currentProfile.myHabits || [],
-                  lookingForHabits: currentProfile.lookingForHabits || [],
-                  jobExperiences: currentProfile.jobExperiences || [],
-                  educationExperiences: currentProfile.educationExperiences || [],
-                  flatDetails: currentProfile.flatDetails,
-                }}
-                distance={currentProfile.distance}
-                alreadyInConversation={conversationStatus[currentProfile.id] || false}
-                onSaveProfile={(profileId, saved) => {
-                  // Update conversation status when message is sent
-                  if (saved) {
-                    setConversationStatus(prev => ({
-                      ...prev,
-                      [profileId]: true
-                    }));
-                  }
-                }}
-              />
-            </div>
-          )}
-        </div>
+              <ChevronLeft className="h-6 w-6" />
+            </Button>
+          </div>
 
-        {/* Right Navigation Button */}
-        <div className="flex-shrink-0 w-12 flex items-center justify-center">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-12 w-12 rounded-full shadow-lg"
-            onClick={handleNext}
-            disabled={currentIndex >= profiles.length - 1 || isAnimating}
-          >
-            <ChevronRight className="h-6 w-6" />
-          </Button>
-        </div>
+          {/* Profile Card - Stretched to fill space */}
+          <div className="flex-1 h-full flex items-center justify-center py-8 px-2">
+            {currentProfile && (
+              <div
+                className={
+                  animationDirection === "left"
+                    ? "animate-slide-out-left w-full"
+                    : animationDirection === "right"
+                    ? "animate-slide-out-right w-full"
+                    : "animate-slide-in w-full"
+                }
+              >
+                <ProfileCard 
+                  profile={{
+                    id: currentProfile.id,
+                    name: currentProfile.name,
+                    age: currentProfile.age,
+                    city: currentProfile.city,
+                    state: currentProfile.state,
+                    profilePicture: currentProfile.profilePicture,
+                    searchType: currentProfile.searchType as "flat" | "flatmate",
+                    myHabits: currentProfile.myHabits || [],
+                    lookingForHabits: currentProfile.lookingForHabits || [],
+                    jobExperiences: currentProfile.jobExperiences || [],
+                    educationExperiences: currentProfile.educationExperiences || [],
+                    flatDetails: currentProfile.flatDetails,
+                  }}
+                  distance={currentProfile.distance}
+                  alreadyInConversation={conversationStatus[currentProfile.id] || false}
+                  onSaveProfile={(profileId, saved) => {
+                    // Update conversation status when message is sent
+                    if (saved) {
+                      setConversationStatus(prev => ({
+                        ...prev,
+                        [profileId]: true
+                      }));
+                    }
+                  }}
+                />
+              </div>
+            )}
+          </div>
 
-        {/* Profile Counter */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-sm text-muted-foreground bg-white px-4 py-2 rounded-full shadow-lg border">
-          {currentIndex + 1} / {profiles.length}
-          {hasMore && " +"}
+          {/* Right Navigation Button */}
+          <div className="flex-shrink-0 w-12 flex items-center justify-center">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-12 w-12 rounded-full shadow-lg"
+              onClick={handleNext}
+              disabled={currentIndex >= profiles.length - 1 || isAnimating}
+            >
+              <ChevronRight className="h-6 w-6" />
+            </Button>
+          </div>
+
+          {/* Profile Counter */}
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-sm text-muted-foreground bg-white px-4 py-2 rounded-full shadow-lg border">
+            {currentIndex + 1} / {profiles.length}
+            {hasMore && " +"}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
