@@ -74,10 +74,18 @@ export const LocationMap = ({
                     // Add navigation controls
                     mapInstance.addControl(new mapboxgl.NavigationControl(), "top-right");
 
+                    // Get theme primary color
+                    const primaryColor = getComputedStyle(document.documentElement)
+                        .getPropertyValue('--pink-500').trim();
+                    const hslValues = primaryColor.split(' ');
+                    const markerColor = hslValues.length === 3
+                        ? `hsl(${hslValues[0]}, ${hslValues[1]}, ${hslValues[2]})`
+                        : "hsl(358, 100%, 68%)"; // Fallback to pink-500
+
                     // Create draggable marker
                     marker.current = new mapboxgl.Marker({
                         draggable: true,
-                        color: "#6366f1",
+                        color: markerColor,
                     })
                         .setLngLat(currentCoords)
                         .addTo(mapInstance);
@@ -228,13 +236,21 @@ export const LocationMap = ({
                 },
             });
 
+            // Get theme primary color
+            const primaryColor = getComputedStyle(document.documentElement)
+                .getPropertyValue('--pink-500').trim();
+            const hslValues = primaryColor.split(' ');
+            const circleColor = hslValues.length === 3
+                ? `hsl(${hslValues[0]}, ${hslValues[1]}, ${hslValues[2]})`
+                : "hsl(358, 100%, 68%)"; // Fallback to pink-500
+
             // Add fill layer
             mapObj.addLayer({
                 id: radiusCircleId,
                 type: "fill",
                 source: radiusCircleId,
                 paint: {
-                    "fill-color": "#6366f1",
+                    "fill-color": circleColor,
                     "fill-opacity": 0.25,
                 },
             });
@@ -245,7 +261,7 @@ export const LocationMap = ({
                 type: "line",
                 source: radiusCircleId,
                 paint: {
-                    "line-color": "#6366f1",
+                    "line-color": circleColor,
                     "line-width": 2,
                 },
             });
@@ -281,7 +297,7 @@ export const LocationMap = ({
         <div className="space-y-5">
             {/* Map Container */}
             <div
-                className="relative w-full h-[400px] rounded-lg overflow-hidden border bg-gray-100 dark:bg-gray-800"
+                className="relative w-full h-[400px] rounded-lg overflow-hidden border border-border bg-muted"
                 style={{ minHeight: "400px" }}
             >
                 <div
@@ -290,14 +306,14 @@ export const LocationMap = ({
                     style={{ width: "100%", height: "100%" }}
                 />
                 {mapLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 z-10">
+                    <div className="absolute inset-0 flex items-center justify-center bg-muted/80 z-10">
                         <p className="text-sm text-muted-foreground">Loading map...</p>
                     </div>
                 )}
                 {mapError && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-red-50/80 dark:bg-red-900/20 z-10">
+                    <div className="absolute inset-0 flex items-center justify-center bg-destructive/10 z-10">
                         <div className="text-center p-4">
-                            <p className="text-sm text-red-600 dark:text-red-400 font-medium">{mapError}</p>
+                            <p className="text-sm text-destructive font-medium">{mapError}</p>
                             <p className="text-xs text-muted-foreground mt-1">Please check your Mapbox token</p>
                         </div>
                     </div>

@@ -102,26 +102,26 @@ export function Calendar({
   };
 
   return (
-    <div className={cn("p-4 bg-white rounded-lg shadow-sm border border-gray-200 w-fit", className)}>
+    <div className={cn("p-4 bg-card rounded-lg shadow-card border border-border w-fit", className)}>
       {/* Header with month/year and navigation */}
       <div className="flex items-center justify-between mb-4">
         <button
           type="button"
           onClick={goToPreviousMonth}
-          className="inline-flex items-center justify-center rounded-md h-7 w-7 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 text-gray-600 transition-colors"
+          className="inline-flex items-center justify-center rounded-md h-7 w-7 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 text-muted-foreground transition-colors"
           aria-label="Previous month"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         
-        <h2 className="text-base font-semibold text-gray-900">
+        <h2 className="text-base font-semibold text-foreground">
           {format(currentMonth, "MMMM yyyy")}
         </h2>
         
         <button
           type="button"
           onClick={goToNextMonth}
-          className="inline-flex items-center justify-center rounded-md h-7 w-7 text-sm font-medium hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 text-gray-600 transition-colors"
+          className="inline-flex items-center justify-center rounded-md h-7 w-7 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 text-muted-foreground transition-colors"
           aria-label="Next month"
         >
           <ChevronRight className="h-4 w-4" />
@@ -133,7 +133,7 @@ export function Calendar({
         {weekDays.map((day, index) => (
           <div
             key={index}
-            className="text-gray-500 font-medium text-[11px] uppercase tracking-wider text-center h-9 flex items-center justify-center"
+            className="text-muted-foreground font-medium text-[11px] uppercase tracking-wider text-center h-9 flex items-center justify-center"
           >
             {day}
           </div>
@@ -163,11 +163,11 @@ export function Calendar({
                 "h-9 w-9 rounded-md text-sm font-normal transition-colors",
                 "flex items-center justify-center",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                !selected && !today && "text-gray-900 hover:bg-gray-100",
+                !selected && !today && "text-foreground hover:bg-accent",
                 !selected && !today && !isDisabled && "cursor-pointer",
-                today && !selected && "bg-gray-100 text-gray-900 font-semibold",
-                selected && "bg-pink-500 text-white font-medium hover:bg-pink-600",
-                isDisabled && "text-gray-300 opacity-50 cursor-not-allowed"
+                today && !selected && "bg-accent text-foreground font-semibold",
+                selected && "bg-primary text-primary-foreground font-medium hover:bg-primary/90",
+                isDisabled && "text-muted-foreground opacity-50 cursor-not-allowed"
               )}
             >
               {format(date, "d")}

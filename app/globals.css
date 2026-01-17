@@ -1,157 +1,141 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #222222;
-}
+/* Airbnb-Inspired Design System
+   All colors MUST be HSL.
+*/
 
-@theme inline {
-  /* Airbnb-Inspired Pink Shades */
-  --color-pink-50: #fff5f7;
-  --color-pink-100: #ffe5e9;
-  --color-pink-200: #ffd1da;
-  --color-pink-300: #ffb3c0;
-  --color-pink-400: #ff8fa5;
-  --color-pink-500: #ff5a5f;
-  --color-pink-600: #e8444a;
-  --color-pink-700: #d62d35;
-  --color-pink-800: #c11e25;
-  --color-pink-900: #9a161c;
-
-  /* Airbnb-Inspired White Shades */
-  --color-white: #ffffff;
-  --color-off-white: #fafafa;
-  --color-cream: #fffef9;
-  --color-snow: #f7f7f7;
-
-  /* Airbnb-Inspired Black Shades */
-  --color-black: #000000;
-  --color-charcoal: #222222;
-  --color-dark-gray: #484848;
-  --color-medium-gray: #717171;
-  --color-light-gray: #b0b0b0;
-  --color-pale-gray: #dddddd;
-  --color-whisper: #f0f0f0;
-
-  /*!* Semantic Colors *!*/
-  /*--color-background: var(--background);*/
-  /*--color-foreground: var(--foreground);*/
-  --color-primary: var(--color-pink-500);
-  --color-primary-hover: var(--color-pink-600);
-  --color-secondary: var(--color-white);
-  --color-muted: var(--color-pale-gray);
-  --color-accent: var(--color-pink-100);
-  --color-border: var(--color-pale-gray);
-  --color-card: var(--color-white);
-  --color-input: var(--color-white);
-
-  /* Background Gradients */
-  --gradient-primary: linear-gradient(135deg, var(--color-pink-500) 0%, var(--color-pink-600) 100%);
-  --gradient-soft: linear-gradient(135deg, var(--color-pink-100) 0%, var(--color-white) 100%);
-
-  --font-sans: var(--font-outfit);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #1a1a1a;
-    --foreground: #f5f5f5;
-    --color-card: #222222;
-    --color-input: #2a2a2a;
-    --color-border: #3a3a3a;
+    /* Airbnb-Inspired Pink Shades */
+    --pink-50: 345 100% 98%;
+    --pink-100: 352 100% 95%;
+    --pink-200: 349 100% 91%;
+    --pink-300: 350 100% 85%;
+    --pink-400: 349 100% 78%;
+    --pink-500: 358 100% 68%;
+    --pink-600: 357 78% 59%;
+    --pink-700: 356 69% 51%;
+    --pink-800: 356 74% 44%;
+    --pink-900: 356 76% 35%;
+
+    /* Airbnb-Inspired White Shades */
+    --white: 0 0% 100%;
+    --off-white: 0 0% 98%;
+    --cream: 50 100% 98%;
+    --snow: 0 0% 97%;
+
+    /* Airbnb-Inspired Black Shades */
+    --black: 0 0% 0%;
+    --charcoal: 0 0% 13%;
+    --dark-gray: 0 0% 28%;
+    --medium-gray: 0 0% 44%;
+    --light-gray: 0 0% 69%;
+    --pale-gray: 0 0% 87%;
+    --whisper: 0 0% 94%;
+
+    /* Semantic Colors */
+    --background: var(--off-white);
+    --foreground: var(--charcoal);
+
+    --card: var(--white);
+    --card-foreground: var(--charcoal);
+
+    --popover: var(--white);
+    --popover-foreground: var(--charcoal);
+
+    --primary: var(--pink-500);
+    --primary-foreground: var(--white);
+    --primary-glow: var(--pink-400);
+
+    --secondary: var(--snow);
+    --secondary-foreground: var(--charcoal);
+
+    --muted: var(--whisper);
+    --muted-foreground: var(--medium-gray);
+
+    --accent: var(--pink-100);
+    --accent-foreground: var(--charcoal);
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: var(--white);
+
+    --border: var(--pale-gray);
+    --input: var(--white);
+    --ring: var(--pink-500);
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--pink-500)), hsl(var(--pink-600)));
+    --gradient-soft: linear-gradient(135deg, hsl(var(--pink-100)), hsl(var(--white)));
+    --gradient-card: linear-gradient(145deg, hsl(var(--white)), hsl(var(--snow)));
+
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -2px hsl(var(--pink-500) / 0.1);
+    --shadow-card: 0 10px 40px -10px hsl(var(--charcoal) / 0.1);
+
+    --radius: 0.5rem;
+
+    /* Sidebar */
+    --sidebar-background: var(--off-white);
+    --sidebar-foreground: var(--dark-gray);
+    --sidebar-primary: var(--charcoal);
+    --sidebar-primary-foreground: var(--off-white);
+    --sidebar-accent: var(--whisper);
+    --sidebar-accent-foreground: var(--charcoal);
+    --sidebar-border: var(--pale-gray);
+    --sidebar-ring: var(--pink-500);
+  }
+
+  .dark {
+    --background: var(--charcoal);
+    --foreground: var(--off-white);
+
+    --card: var(--dark-gray);
+    --card-foreground: var(--off-white);
+
+    --popover: var(--dark-gray);
+    --popover-foreground: var(--off-white);
+
+    --primary: var(--pink-500);
+    --primary-foreground: var(--white);
+
+    --secondary: var(--dark-gray);
+    --secondary-foreground: var(--off-white);
+
+    --muted: var(--dark-gray);
+    --muted-foreground: var(--light-gray);
+
+    --accent: var(--dark-gray);
+    --accent-foreground: var(--off-white);
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: var(--off-white);
+
+    --border: var(--dark-gray);
+    --input: var(--dark-gray);
+    --ring: var(--pink-400);
+
+    --sidebar-background: var(--charcoal);
+    --sidebar-foreground: var(--whisper);
+    --sidebar-primary: var(--pink-500);
+    --sidebar-primary-foreground: var(--white);
+    --sidebar-accent: var(--dark-gray);
+    --sidebar-accent-foreground: var(--whisper);
+    --sidebar-border: var(--dark-gray);
+    --sidebar-ring: var(--pink-500);
   }
 }
 
-body {
-  font-family: var(--font-outfit), sans-serif;
-}
-
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+@layer base {
+  * {
+    /* Set default border color using the CSS variable to avoid @apply of a Tailwind-generated utility */
+    border-color: hsl(var(--border));
   }
-  to {
-    transform: rotate(360deg);
+
+  body {
+    /* Use CSS variables directly so Tailwind doesn't need to generate utilities for these base rules */
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-}
-
-@keyframes slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(0);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slide-out-left {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(-100%);
-  }
-}
-
-@keyframes slide-out-right {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-}
-
-.animate-slide-in {
-  animation: slide-in 0.3s ease-in-out;
-}
-
-.animate-slide-out-left {
-  animation: slide-out-left 0.3s ease-in-out;
-}
-
-.animate-slide-out-right {
-  animation: slide-out-right 0.3s ease-in-out;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: var(--color-medium-gray);
 }

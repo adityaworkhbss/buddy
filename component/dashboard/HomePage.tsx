@@ -34,6 +34,7 @@ interface DiscoveredUser {
 }
 
 export const HomePage = () => {
+  const profileWrapperRef = useRef<HTMLDivElement | null>(null);
   const [profiles, setProfiles] = useState<DiscoveredUser[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -394,7 +395,7 @@ export const HomePage = () => {
     }
   };
 
-  const handleNext = () => {
+    const handleNext = () => {
     if (isAnimating || currentIndex >= profiles.length - 1) return;
     setIsAnimating(true);
     setAnimationDirection("left");
@@ -403,9 +404,9 @@ export const HomePage = () => {
       setIsAnimating(false);
       setAnimationDirection(null);
     }, 300);
-  };
+    };
 
-  const handlePrevious = () => {
+    const handlePrevious = () => {
     if (isAnimating || currentIndex <= 0) return;
     setIsAnimating(true);
     setAnimationDirection("right");
@@ -414,7 +415,19 @@ export const HomePage = () => {
       setIsAnimating(false);
       setAnimationDirection(null);
     }, 300);
-  };
+    };
+
+    // Ensure the profile card wrapper is scrolled into view when the current profile changes
+    useEffect(() => {
+    try {
+      if (profileWrapperRef.current) {
+        // Scroll parent container so the card is visible from the start
+        profileWrapperRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    } catch (e) {
+      // ignore
+    }
+    }, [currentIndex]);
 
   const handleApplyFilters = async () => {
     setIsFilterOpen(false);
@@ -864,6 +877,7 @@ export const HomePage = () => {
           <div className="flex-1 h-full flex items-center justify-center py-8 px-2">
             {currentProfile && (
               <div
+                ref={profileWrapperRef}
                 className={
                   animationDirection === "left"
                     ? "animate-slide-out-left w-full"

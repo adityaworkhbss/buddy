@@ -841,12 +841,14 @@ export const ProfilePage = () => {
             >
               Habits
             </TabsTrigger>
-            <TabsTrigger 
-              value="preferences"
-              className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-700 data-[state=active]:font-semibold data-[state=active]:border-pink-300 border border-transparent text-gray-600"
-            >
-              Preferences
-            </TabsTrigger>
+
+            {/*<TabsTrigger */}
+            {/*  value="preferences"*/}
+            {/*  className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-700 data-[state=active]:font-semibold data-[state=active]:border-pink-300 border border-transparent text-gray-600"*/}
+            {/*>*/}
+            {/*  Preferences*/}
+            {/*</TabsTrigger>*/}
+
             <TabsTrigger 
               value="saved"
               className="data-[state=active]:bg-pink-100 data-[state=active]:text-pink-700 data-[state=active]:font-semibold data-[state=active]:border-pink-300 border border-transparent text-gray-600"
@@ -979,7 +981,7 @@ export const ProfilePage = () => {
             </Card>
 
             {/* Work Experience Card */}
-            <Card className="bg-white shadow-sm border border-gray-200">
+            <Card className="bg-grey-50 shadow-sm border border-gray-200">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-gray-900">
@@ -991,7 +993,7 @@ export const ProfilePage = () => {
                       variant="outline"
                       size="sm"
                       onClick={handleAddJobExperience}
-                      className="text-gray-700"
+                      className="text-gray-700 "
                     >
                       <Plus className="w-4 h-4 mr-1" />
                       Add
@@ -1718,26 +1720,26 @@ export const ProfilePage = () => {
           </TabsContent>
 
           {/* Preferences Tab */}
-          <TabsContent value="preferences" className="mt-4">
-            <Card className="bg-white shadow-sm border border-gray-200">
-              <CardHeader>
-                <CardTitle className="text-gray-900">Matching Preferences</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {matchingPreferences.map((pref) => (
-                  <div key={pref.id} className="bg-pink-50 rounded-lg p-4 border border-pink-200 flex items-start gap-4">
-                    <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-bold text-sm">{pref.id}</span>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-bold text-gray-900 mb-1">{pref.title}</h4>
-                      <p className="text-sm text-gray-600">{pref.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {/*<TabsContent value="preferences" className="mt-4">*/}
+          {/*  <Card className="bg-white shadow-sm border border-gray-200">*/}
+          {/*    <CardHeader>*/}
+          {/*      <CardTitle className="text-gray-900">Matching Preferences</CardTitle>*/}
+          {/*    </CardHeader>*/}
+          {/*    <CardContent className="space-y-4">*/}
+          {/*      {matchingPreferences.map((pref) => (*/}
+          {/*        <div key={pref.id} className="bg-pink-50 rounded-lg p-4 border border-pink-200 flex items-start gap-4">*/}
+          {/*          <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center flex-shrink-0">*/}
+          {/*            <span className="text-white font-bold text-sm">{pref.id}</span>*/}
+          {/*          </div>*/}
+          {/*          <div className="flex-1">*/}
+          {/*            <h4 className="font-bold text-gray-900 mb-1">{pref.title}</h4>*/}
+          {/*            <p className="text-sm text-gray-600">{pref.description}</p>*/}
+          {/*          </div>*/}
+          {/*        </div>*/}
+          {/*      ))}*/}
+          {/*    </CardContent>*/}
+          {/*  </Card>*/}
+          {/*</TabsContent>*/}
 
           {/* Saved Tab */}
           <TabsContent value="saved" className="mt-4">
@@ -1777,9 +1779,9 @@ export const ProfilePage = () => {
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
-                          <Badge className="bg-pink-500 text-white mb-3">
-                            {savedProfile.searchType === "flatmate" ? "Has Flat" : "Looking for Flat"}
-                          </Badge>
+                          {/*<Badge className="bg-pink-500 text-white mb-3">*/}
+                          {/*  {savedProfile.searchType === "flatmate" ? "Has Flat" : "Looking for Flat"}*/}
+                          {/*</Badge>*/}
                           <div className="flex flex-wrap gap-2">
                             {(savedProfile.myHabits || []).slice(0, 3).map((habit: string, idx: number) => (
                               <Badge key={idx} variant="outline" className="bg-gray-100 text-gray-700 border-gray-300">

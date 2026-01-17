@@ -135,10 +135,10 @@ export default function PublicProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f6f2ff] flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
-          <p className="text-gray-700">Loading profile...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-foreground">Loading profile...</p>
         </div>
       </div>
     );
@@ -146,13 +146,13 @@ export default function PublicProfilePage() {
 
   if (error || !profile) {
     return (
-      <div className="min-h-screen bg-[#f6f2ff] flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-8 bg-white rounded-lg shadow-md">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Profile Not Found</h2>
-          <p className="text-gray-600 mb-4">{error || "The profile you're looking for doesn't exist."}</p>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8 bg-card rounded-lg shadow-card">
+          <h2 className="text-2xl font-bold text-card-foreground mb-2">Profile Not Found</h2>
+          <p className="text-muted-foreground mb-4">{error || "The profile you're looking for doesn't exist."}</p>
           <Button
             onClick={() => router.push("/")}
-            className="bg-pink-500 hover:bg-pink-600 text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             Go to Home
           </Button>
@@ -166,7 +166,7 @@ export default function PublicProfilePage() {
   const state = profile.housingDetails?.preferenceLocation?.split(",")[1]?.trim() || "";
 
   return (
-    <div className="min-h-screen bg-[#f6f2ff] py-8 px-4">
+    <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-4xl mx-auto">
         {/* Back Button */}
         <Button

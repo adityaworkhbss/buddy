@@ -26,9 +26,9 @@ const Slider = React.forwardRef<
     >
       <SliderPrimitive.Track 
         className={cn(
-          "relative overflow-hidden rounded-full bg-gray-200",
-          isVertical 
-            ? "h-full w-2" 
+          "relative overflow-hidden rounded-full bg-gray-50",
+          isVertical
+            ? "h-full w-2"
             : "h-2 w-full grow"
         )}
       >
@@ -39,9 +39,9 @@ const Slider = React.forwardRef<
           )} 
         />
       </SliderPrimitive.Track>
-      <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-pink-500 bg-white ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-sm" />
+      <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-pink-500 bg-pink-500 text-white ring-offset-background transition hover:bg-pink-600 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-sm" />
       {(props.value && Array.isArray(props.value) && props.value.length > 1) || (props.defaultValue && Array.isArray(props.defaultValue) && props.defaultValue.length > 1) ? (
-        <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-pink-500 bg-white ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-sm" />
+        <SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-pink-500 bg-pink-500 text-white ring-offset-background transition hover:bg-pink-600 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 shadow-sm" />
       ) : null}
     </SliderPrimitive.Root>
   );
