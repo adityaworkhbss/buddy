@@ -116,7 +116,7 @@ export const AppSidebar = ({ activeView, onViewChange }: AppSidebarProps) => {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter className="flex-row gap-2 justify-end">
-                        <AlertDialogCancel className="border-red-500 text-red-500 hover:bg-red-50 hover:text-red-600 bg-white">
+                        <AlertDialogCancel className="border-pink-500 text-pink-500 hover:bg-pink-50 hover:text-pink-600 bg-white">
                             Cancel
                         </AlertDialogCancel>
                         <AlertDialogAction 

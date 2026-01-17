@@ -2,13 +2,17 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { 
-    User, Mail, Phone, Calendar, MapPin, Edit2, Save, X, 
+    User, Mail, Phone, Calendar as CalendarIcon, MapPin, Edit2, Save, X, 
     Camera, Upload, Building2, GraduationCap, Home, 
     Heart, Coffee, Moon, Cigarette
 } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { APP_CONFIG } from "../../config/appConfigs";
 import { OTP } from "../../lib/otpHandler";
+import { Calendar } from "../ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Button } from "../ui/button";
+import { format } from "date-fns";
 
 export default function EditProfile({ onSave }) {
     const { toast } = useToast();
@@ -612,17 +616,17 @@ export default function EditProfile({ onSave }) {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#f6f2ff] flex items-center justify-center">
+            <div className="min-h-screen bg-pink-50 flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading profile data...</p>
+                    <p className="text-gray-900">Loading profile data...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#f6f2ff] py-8 px-4">
+        <div className="min-h-screen bg-pink-50 py-8 px-4">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <div className="bg-white rounded-2xl shadow-xl p-6 mb-6 border border-gray-200 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -634,7 +638,7 @@ export default function EditProfile({ onSave }) {
                         <button
                             onClick={handleSave}
                             disabled={saving}
-                            className="px-6 py-3 bg-gradient-to-r from-pink-600 to-red-500 hover:opacity-90 active:scale-95 text-white rounded-lg font-semibold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
+                            className="px-6 py-3 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 active:scale-95 text-white rounded-lg font-semibold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
                         >
                             <Save className="w-5 h-5" />
                             {saving ? "Saving..." : "Save Changes"}
@@ -681,12 +685,12 @@ export default function EditProfile({ onSave }) {
                                                 className="w-full h-full object-cover"
                                             />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-100 to-red-100">
+                                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-pink-100 to-pink-200">
                                                 <User className="w-12 h-12 text-pink-600" />
                                             </div>
                                         )}
                                     </div>
-                                    <label className="absolute -bottom-2 -right-2 bg-gradient-to-r from-pink-600 to-red-500 text-white p-3 rounded-full cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-lg hover:shadow-xl">
+                                    <label className="absolute -bottom-2 -right-2 bg-gradient-to-r from-pink-500 to-pink-600 text-white p-3 rounded-full cursor-pointer hover:opacity-90 active:scale-95 transition-all shadow-lg hover:shadow-xl">
                                         <Camera className="w-5 h-5" />
                                         <input 
                                             type="file" 
@@ -709,7 +713,7 @@ export default function EditProfile({ onSave }) {
                                         type="text"
                                         value={profileData.fullName}
                                         onChange={(e) => handleInputChange("fullName", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                         placeholder="Enter your full name"
                                     />
                                 </div>
@@ -723,7 +727,7 @@ export default function EditProfile({ onSave }) {
                                         type="number"
                                         value={profileData.age}
                                         onChange={(e) => handleInputChange("age", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                         placeholder="Enter your age"
                                     />
                                 </div>
@@ -738,7 +742,7 @@ export default function EditProfile({ onSave }) {
                                             type="tel"
                                             value={profileData.phone}
                                             onChange={(e) => handleInputChange("phone", e.target.value)}
-                                            className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                            className="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                             placeholder="Enter phone number"
                                             readOnly
                                         />
@@ -748,7 +752,7 @@ export default function EditProfile({ onSave }) {
                                                 setNewPhone("");
                                                 setPhoneChangeModalOpen(true);
                                             }}
-                                            className="px-4 py-3 bg-gradient-to-r from-pink-600 to-red-500 hover:opacity-90 active:scale-95 text-white rounded-lg font-medium transition-all text-sm shadow-md hover:shadow-lg whitespace-nowrap"
+                                            className="px-4 py-3 bg-gradient-to-r from-pink-500 to-pink-600 hover:opacity-90 active:scale-95 text-white rounded-lg font-medium transition-all text-sm shadow-md hover:shadow-lg whitespace-nowrap"
                                         >
                                             Change
                                         </button>
@@ -764,7 +768,7 @@ export default function EditProfile({ onSave }) {
                                         type="email"
                                         value={profileData.email}
                                         onChange={(e) => handleInputChange("email", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                         placeholder="Enter your email"
                                     />
                                 </div>
@@ -782,7 +786,7 @@ export default function EditProfile({ onSave }) {
                                                     value={gender}
                                                     checked={profileData.gender === gender}
                                                     onChange={(e) => handleInputChange("gender", e.target.value)}
-                                                    className="w-4 h-4 text-pink-600 focus:ring-2 focus:ring-indigo-400 border-gray-300"
+                                                    className="w-4 h-4 text-pink-600 focus:ring-2 focus:ring-pink-500 border-gray-300"
                                                 />
                                                 <span className="ml-2 text-gray-700">{gender}</span>
                                             </label>
@@ -807,7 +811,7 @@ export default function EditProfile({ onSave }) {
                                     <select
                                         value={profileData.smoking}
                                         onChange={(e) => handleInputChange("smoking", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                     >
                                         <option value="">Select preference</option>
                                         <option value="Never">Never</option>
@@ -824,7 +828,7 @@ export default function EditProfile({ onSave }) {
                                     <select
                                         value={profileData.drinking}
                                         onChange={(e) => handleInputChange("drinking", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                     >
                                         <option value="">Select preference</option>
                                         <option value="Never">Never</option>
@@ -840,7 +844,7 @@ export default function EditProfile({ onSave }) {
                                     <select
                                         value={profileData.diet}
                                         onChange={(e) => handleInputChange("diet", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                     >
                                         <option value="">Select preference</option>
                                         <option value="Vegetarian">Vegetarian</option>
@@ -858,7 +862,7 @@ export default function EditProfile({ onSave }) {
                                     <select
                                         value={profileData.sleepSchedule}
                                         onChange={(e) => handleInputChange("sleepSchedule", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                     >
                                         <option value="">Select preference</option>
                                         <option value="Early Bird">Early Bird (10 PM - 6 AM)</option>
@@ -885,7 +889,7 @@ export default function EditProfile({ onSave }) {
                                         </h3>
                                         <button 
                                             onClick={addWorkExperience}
-                                            className="px-4 py-2 bg-gradient-to-r from-pink-600 to-red-500 text-white rounded-lg hover:opacity-90 active:scale-95 transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                                            className="px-4 py-2 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-lg hover:opacity-90 active:scale-95 transition-all text-sm font-medium shadow-md hover:shadow-lg"
                                         >
                                             Add Experience
                                         </button>
@@ -903,7 +907,7 @@ export default function EditProfile({ onSave }) {
                                                         <div className="font-medium text-gray-700">Experience #{idx + 1}</div>
                                                         <button
                                                             onClick={() => removeWorkExperience(exp.id)}
-                                                            className="text-red-500 hover:text-red-700 text-sm"
+                                                            className="text-pink-600 hover:text-pink-700 text-sm"
                                                         >
                                                             Remove
                                                         </button>
@@ -914,21 +918,21 @@ export default function EditProfile({ onSave }) {
                                                             placeholder="Company"
                                                             value={exp.company}
                                                             onChange={(e) => updateWorkExperience(exp.id, "company", e.target.value)}
-                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 outline-none"
                                                         />
                                                         <input
                                                             type="text"
                                                             placeholder="Position"
                                                             value={exp.position}
                                                             onChange={(e) => updateWorkExperience(exp.id, "position", e.target.value)}
-                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 outline-none"
                                                         />
                                                         <input
                                                             type="text"
                                                             placeholder="From Year (e.g., 2020)"
                                                             value={exp.fromYear}
                                                             onChange={(e) => updateWorkExperience(exp.id, "fromYear", e.target.value)}
-                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 outline-none"
                                                         />
                                                         {!exp.currentlyWorking ? (
                                                             <input
@@ -936,7 +940,7 @@ export default function EditProfile({ onSave }) {
                                                                 placeholder="Till Year (e.g., 2023)"
                                                                 value={exp.tillYear}
                                                                 onChange={(e) => updateWorkExperience(exp.id, "tillYear", e.target.value)}
-                                                                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                                                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 outline-none"
                                                             />
                                                         ) : (
                                                             <div className="flex items-center px-3 py-2 text-gray-500">Present</div>
@@ -966,7 +970,7 @@ export default function EditProfile({ onSave }) {
                                         </h3>
                                         <button 
                                             onClick={addEducation}
-                                            className="px-4 py-2 bg-gradient-to-r from-pink-600 to-red-500 text-white rounded-lg hover:opacity-90 active:scale-95 transition-all text-sm font-medium shadow-md hover:shadow-lg"
+                                            className="px-4 py-2 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-lg hover:opacity-90 active:scale-95 transition-all text-sm font-medium shadow-md hover:shadow-lg"
                                         >
                                             Add Education
                                         </button>
@@ -984,7 +988,7 @@ export default function EditProfile({ onSave }) {
                                                         <div className="font-medium text-gray-700">Education #{idx + 1}</div>
                                                         <button
                                                             onClick={() => removeEducation(edu.id)}
-                                                            className="text-red-500 hover:text-red-700 text-sm"
+                                                            className="text-pink-600 hover:text-pink-700 text-sm"
                                                         >
                                                             Remove
                                                         </button>
@@ -995,21 +999,21 @@ export default function EditProfile({ onSave }) {
                                                             placeholder="Institution"
                                                             value={edu.institution}
                                                             onChange={(e) => updateEducation(edu.id, "institution", e.target.value)}
-                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 outline-none"
                                                         />
                                                         <input
                                                             type="text"
                                                             placeholder="Degree"
                                                             value={edu.degree}
                                                             onChange={(e) => updateEducation(edu.id, "degree", e.target.value)}
-                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 outline-none"
                                                         />
                                                         <input
                                                             type="text"
                                                             placeholder="Start Year (e.g., 2018)"
                                                             value={edu.startYear}
                                                             onChange={(e) => updateEducation(edu.id, "startYear", e.target.value)}
-                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                                            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 outline-none"
                                                         />
                                                         {!edu.stillStudying ? (
                                                             <input
@@ -1017,7 +1021,7 @@ export default function EditProfile({ onSave }) {
                                                                 placeholder="End Year (e.g., 2022)"
                                                                 value={edu.endYear}
                                                                 onChange={(e) => updateEducation(edu.id, "endYear", e.target.value)}
-                                                                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-400 outline-none"
+                                                                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-pink-500 outline-none"
                                                             />
                                                         ) : (
                                                             <div className="flex items-center px-3 py-2 text-gray-500">Currently studying</div>
@@ -1061,7 +1065,7 @@ export default function EditProfile({ onSave }) {
                                                 setLocationSearchQuery(e.target.value);
                                                 handleInputChange("location", e.target.value);
                                             }}
-                                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                             placeholder="Enter preferred location"
                                         />
                                         {isSearching && APP_CONFIG.suggestionFromMapbox && (
@@ -1100,7 +1104,7 @@ export default function EditProfile({ onSave }) {
                                     <select
                                         value={profileData.roomType}
                                         onChange={(e) => handleInputChange("roomType", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                     >
                                         <option value="">Select room type</option>
                                         <option value="Single">Single Room</option>
@@ -1120,7 +1124,7 @@ export default function EditProfile({ onSave }) {
                                         type="number"
                                         value={profileData.budget.min}
                                         onChange={(e) => handleNestedChange("budget", "min", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                         placeholder="Min budget"
                                     />
                                 </div>
@@ -1133,7 +1137,7 @@ export default function EditProfile({ onSave }) {
                                         type="number"
                                         value={profileData.budget.max}
                                         onChange={(e) => handleNestedChange("budget", "max", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
+                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition bg-gray-50 focus:bg-white"
                                         placeholder="Max budget"
                                     />
                                 </div>
@@ -1142,12 +1146,29 @@ export default function EditProfile({ onSave }) {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Preferred Moving Date
                                     </label>
-                                    <input
-                                        type="date"
-                                        value={profileData.movingDate}
-                                        onChange={(e) => handleInputChange("movingDate", e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none transition bg-gray-50 focus:bg-white"
-                                    />
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full justify-start text-left font-normal bg-gray-50 hover:bg-white"
+                                            >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {profileData.movingDate ? (
+                                                    format(new Date(profileData.movingDate), "PPP")
+                                                ) : (
+                                                    <span>Pick a date</span>
+                                                )}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                selected={profileData.movingDate ? new Date(profileData.movingDate) : undefined}
+                                                onSelect={(date) => {
+                                                    handleInputChange("movingDate", date ? date.toISOString().split('T')[0] : "");
+                                                }}
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
                             </div>
                         </div>
@@ -1202,7 +1223,7 @@ export default function EditProfile({ onSave }) {
                                         setNewPhone(v);
                                     }}
                                     placeholder="10-digit phone number"
-                                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none"
+                                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none"
                                     maxLength={10}
                                 />
                             </div>
@@ -1219,7 +1240,7 @@ export default function EditProfile({ onSave }) {
                                 <button
                                     onClick={() => handleSendOtpForPhoneChange(false)}
                                     disabled={!isNumberValid(newPhone) || sendingOtp}
-                                    className="flex-1 px-4 py-2 bg-gradient-to-r from-pink-600 to-red-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                    className="flex-1 px-4 py-2 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
                                 >
                                     {sendingOtp ? "Sending..." : "Send OTP"}
                                 </button>
@@ -1286,7 +1307,7 @@ export default function EditProfile({ onSave }) {
                                     if (otpError) setOtpError(null);
                                 }}
                                 maxLength={6}
-                                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-center text-lg tracking-widest focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none"
+                                className="w-full border border-gray-300 rounded-lg px-4 py-3 text-center text-lg tracking-widest focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none"
                                 disabled={otpValidityRemaining === 0 && otpSentTime !== null}
                             />
 
@@ -1294,7 +1315,7 @@ export default function EditProfile({ onSave }) {
                                 <button
                                     onClick={handleVerifyOtpAndChangePhone}
                                     disabled={verifying || otp.length !== 6 || (otpValidityRemaining === 0 && otpSentTime !== null) || !confirmationResult}
-                                    className="flex-1 px-4 py-2 bg-gradient-to-r from-pink-600 to-red-500 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                    className="flex-1 px-4 py-2 bg-gradient-to-r from-pink-500 to-pink-600 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition"
                                 >
                                     {verifying ? "Verifying..." : "Verify & Change"}
                                 </button>

@@ -11,8 +11,11 @@ import { Slider } from "../ui/slider";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { MediaUpload } from "../ui/media-upload";
 import { LocationMap } from "../map/LocationMap";
-import { Home, Search, Calendar, MapPin, Camera } from "lucide-react";
+import { Home, Search, Calendar as CalendarIcon, MapPin, Camera } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
+import { Calendar } from "../ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { format } from "date-fns";
 
 const amenitiesList = [
     "WiFi", "Parking", "Gym", "Swimming Pool", "Laundry", "Air Conditioning",
@@ -341,11 +344,29 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack, personalInf
                         {/* Moving Date */}
                         <div className="space-y-2">
                             <Label>Moving Date</Label>
-                            <Input
-                                type="date"
-                                value={data.movingDate}
-                                onChange={(e) => handleInputChange("movingDate", e.target.value)}
-                            />
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-start text-left font-normal"
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {data.movingDate ? (
+                                            format(new Date(data.movingDate), "PPP")
+                                        ) : (
+                                            <span>Pick a date</span>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        selected={data.movingDate ? new Date(data.movingDate) : undefined}
+                                        onSelect={(date) => {
+                                            handleInputChange("movingDate", date ? date.toISOString().split('T')[0] : "");
+                                        }}
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         </div>
 
                         {/* Location Map */}
@@ -489,13 +510,29 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack, personalInf
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Available From</Label>
-                                <Input
-                                    type="date"
-                                    value={data.flatDetails.availableFrom}
-                                    onChange={(e) =>
-                                        handleFlatDetailsChange("availableFrom", e.target.value)
-                                    }
-                                />
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-start text-left font-normal"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {data.flatDetails.availableFrom ? (
+                                                format(new Date(data.flatDetails.availableFrom), "PPP")
+                                            ) : (
+                                                <span>Pick a date</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            selected={data.flatDetails.availableFrom ? new Date(data.flatDetails.availableFrom) : undefined}
+                                            onSelect={(date) => {
+                                                handleFlatDetailsChange("availableFrom", date ? date.toISOString().split('T')[0] : "");
+                                            }}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
                             </div>
 
                             <div className="space-y-2">

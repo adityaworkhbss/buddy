@@ -1,12 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Bookmark, MapPin, Home, Send, Share2, MessageCircle } from "lucide-react";
+import { Bookmark, MapPin, Home, Send, Share2, MessageCircle, Copy } from "lucide-react";
 import { Button } from "@/component/ui/button";
 import { Textarea } from "@/component/ui/textarea";
 import { Badge } from "@/component/ui/badge";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/component/ui/dropdown-menu";
 
 interface DiscoveredUser {
   id: string;
@@ -282,26 +288,37 @@ Annual Rent: ${annualRent}`;
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-gray-600 hover:text-gray-900"
-                  onClick={handleShareProfile}
-                  disabled={isSharing}
-                  title="Copy Profile Link"
-                >
-                  <Share2 className={`w-5 h-5 ${isSharing ? "animate-spin" : ""}`} />
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                  onClick={handleShareOnWhatsApp}
-                  disabled={isSharing}
-                  title="Share on WhatsApp"
-                >
-                  <MessageCircle className={`w-5 h-5 ${isSharing ? "animate-spin" : ""}`} />
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-gray-600 hover:text-gray-900"
+                      disabled={isSharing}
+                      title="Share Profile"
+                    >
+                      <Share2 className={`w-5 h-5 ${isSharing ? "animate-spin" : ""}`} />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-white">
+                    <DropdownMenuItem 
+                      onClick={handleShareOnWhatsApp}
+                      disabled={isSharing}
+                      className="cursor-pointer"
+                    >
+                      <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+                      Share on WhatsApp
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={handleShareProfile}
+                      disabled={isSharing}
+                      className="cursor-pointer"
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy Link
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
                 <Button 
                   variant="ghost" 
                   size="icon" 

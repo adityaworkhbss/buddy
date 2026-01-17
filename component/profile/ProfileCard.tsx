@@ -5,11 +5,17 @@ import { Button } from "@/component/ui/button";
 import { Textarea } from "@/component/ui/textarea";
 import { Badge } from "@/component/ui/badge";
 import { Separator } from "@/component/ui/separator";
-import { MapPin, Briefcase, GraduationCap, Home, Send, Bookmark, Share2, MessageCircle } from "lucide-react";
+import { MapPin, Briefcase, GraduationCap, Home, Send, Bookmark, Share2, MessageCircle, Copy } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { StaticMap } from "@/component/ui/static-map";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/component/ui/dropdown-menu";
 
 interface JobExperience {
   id: string;
@@ -417,26 +423,37 @@ Annual Rent: ${annualRent}`;
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleShareProfile}
-              className="h-10 w-10 text-gray-600 hover:text-gray-900"
-              disabled={isSharing}
-              title="Copy Profile Link"
-            >
-              <Share2 className={`h-5 w-5 ${isSharing ? "animate-spin" : ""}`} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleShareOnWhatsApp}
-              className="h-10 w-10 text-green-600 hover:text-green-700 hover:bg-green-50"
-              disabled={isSharing}
-              title="Share on WhatsApp"
-            >
-              <MessageCircle className={`h-5 w-5 ${isSharing ? "animate-spin" : ""}`} />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 text-gray-600 hover:text-gray-900"
+                  disabled={isSharing}
+                  title="Share Profile"
+                >
+                  <Share2 className={`h-5 w-5 ${isSharing ? "animate-spin" : ""}`} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-white">
+                <DropdownMenuItem 
+                  onClick={handleShareOnWhatsApp}
+                  disabled={isSharing}
+                  className="cursor-pointer"
+                >
+                  <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+                  Share on WhatsApp
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={handleShareProfile}
+                  disabled={isSharing}
+                  className="cursor-pointer"
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Link
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant={saved ? "default" : "outline"}
               size="icon"
@@ -490,7 +507,7 @@ Annual Rent: ${annualRent}`;
             {/* Flat Details - Address & Map */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2 text-gray-900">
-                <Home className="h-5 w-5 text-red-500" />
+                <Home className="h-5 w-5 text-pink-500" />
                 Flat Details
               </h3>
               
@@ -499,7 +516,7 @@ Annual Rent: ${annualRent}`;
                   {/* Address & Furnishing */}
                   <div className="p-4 space-y-3">
                     <p className="flex items-start gap-2">
-                      <MapPin className="h-4 w-4 mt-0.5 text-red-500 flex-shrink-0" />
+                      <MapPin className="h-4 w-4 mt-0.5 text-pink-500 flex-shrink-0" />
                       <span className="text-sm text-gray-700">{profile.flatDetails.address}</span>
                     </p>
                     <div className="flex items-center gap-2">

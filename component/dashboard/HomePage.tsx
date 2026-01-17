@@ -501,10 +501,10 @@ export const HomePage = () => {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#f6f2ff]">
+      <div className="h-screen flex items-center justify-center bg-pink-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading users nearby...</p>
+          <p className="text-gray-900">Loading users nearby...</p>
         </div>
       </div>
     );
@@ -512,9 +512,9 @@ export const HomePage = () => {
 
   if (!userLocation) {
     return (
-      <div className="h-screen flex items-center justify-center bg-[#f6f2ff]">
+      <div className="h-screen flex items-center justify-center bg-pink-50">
         <div className="text-center max-w-md mx-auto p-8 bg-white rounded-lg shadow-md">
-          <p className="text-gray-600 mb-4">
+          <p className="text-charcoal mb-4">
             Please update your profile location to discover users nearby.
           </p>
         </div>
@@ -525,7 +525,7 @@ export const HomePage = () => {
   const currentProfile = profiles.length > 0 ? profiles[currentIndex] : null;
 
   return (
-    <div className="h-screen flex flex-col relative bg-[#f6f2ff]">
+    <div className="h-screen flex flex-col relative bg-pink-50">
       {/* Floating Filter Button */}
       <Button
         onClick={() => setIsFilterOpen(true)}
@@ -647,11 +647,9 @@ export const HomePage = () => {
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
-                          mode="single"
                           selected={flatmateMoveInDate}
                           onSelect={setFlatmateMoveInDate}
-                          initialFocus
-                          className={cn("p-3 pointer-events-auto")}
+                          className={cn("pointer-events-auto")}
                         />
                       </PopoverContent>
                     </Popover>
@@ -739,7 +737,7 @@ export const HomePage = () => {
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar mode="single" selected={availableFrom} onSelect={setAvailableFrom} initialFocus className="pointer-events-auto" />
+                          <Calendar selected={availableFrom} onSelect={setAvailableFrom} className="pointer-events-auto" />
                         </PopoverContent>
                       </Popover>
                     </div>

@@ -372,7 +372,7 @@ export default function LoginComponent() {
                                 className={`w-full border h-12 rounded-lg pl-10 pr-4 focus:ring-2 outline-none ${
                                     error && error.includes("phone") 
                                         ? "border-red-300 bg-red-50 focus:ring-red-400" 
-                                        : "border-gray-300 bg-gray-50 focus:ring-indigo-400"
+                                        : "border-gray-300 bg-gray-50 focus:ring-pink-500"
                                 }`}
                                 placeholder="Enter 10-digit phone number"
                             />
@@ -398,7 +398,7 @@ export default function LoginComponent() {
                                 className={`w-full border h-12 rounded-lg pl-10 pr-10 focus:ring-2 outline-none ${
                                     error && (error.includes("password") || error.includes("Password") || error.includes("Invalid"))
                                         ? "border-red-300 bg-red-50 focus:ring-red-400" 
-                                        : "border-gray-300 bg-gray-50 focus:ring-indigo-400"
+                                        : "border-gray-300 bg-gray-50 focus:ring-pink-500"
                                 }`}
                                 placeholder="Enter your password"
                             />
@@ -431,7 +431,7 @@ export default function LoginComponent() {
                     <button
                         onClick={handleLogin}
                         disabled={loading}
-                        className="w-full h-12 bg-gradient-to-r from-pink-600 to-red-500 hover:opacity-90 text-white rounded-lg font-semibold transition"
+                        className="w-full h-12 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white rounded-lg font-semibold transition"
                     >
                         {loading ? "Signing in..." : "Sign In"}
                     </button>
@@ -503,7 +503,7 @@ export default function LoginComponent() {
                                         className={`w-full border h-12 rounded-lg pl-10 pr-4 focus:ring-2 outline-none ${
                                             fieldErrors.phone
                                                 ? "border-red-300 bg-red-50 focus:ring-red-400"
-                                                : "border-gray-300 bg-gray-50 focus:ring-indigo-400"
+                                                : "border-gray-300 bg-gray-50 focus:ring-pink-500"
                                         }`}
                                         placeholder="Enter 10-digit phone number"
                                         disabled={otpSent}
@@ -532,7 +532,7 @@ export default function LoginComponent() {
                                         className={`w-full border h-12 rounded-lg pl-10 pr-10 focus:ring-2 outline-none ${
                                             fieldErrors.newPassword
                                                 ? "border-red-300 bg-red-50 focus:ring-red-400"
-                                                : "border-gray-300 bg-gray-50 focus:ring-indigo-400"
+                                                : "border-gray-300 bg-gray-50 focus:ring-pink-500"
                                         }`}
                                         placeholder="Enter new password (min 6 characters)"
                                         disabled={otpSent}
@@ -568,7 +568,7 @@ export default function LoginComponent() {
                                         className={`w-full border h-12 rounded-lg pl-10 pr-10 focus:ring-2 outline-none ${
                                             fieldErrors.confirmPassword
                                                 ? "border-red-300 bg-red-50 focus:ring-red-400"
-                                                : "border-gray-300 bg-gray-50 focus:ring-indigo-400"
+                                                : "border-gray-300 bg-gray-50 focus:ring-pink-500"
                                         }`}
                                         placeholder="Confirm new password"
                                         disabled={otpSent}
@@ -591,7 +591,7 @@ export default function LoginComponent() {
                                 <button
                                     onClick={handleSendResetOtp}
                                     disabled={sendingOtp}
-                                    className="w-full h-12 bg-gradient-to-r from-pink-600 to-red-500 hover:opacity-90 text-white rounded-lg font-semibold transition disabled:opacity-50"
+                                    className="w-full h-12 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white rounded-lg font-semibold transition disabled:opacity-50"
                                 >
                                     {sendingOtp ? "Sending OTP..." : "Send OTP"}
                                 </button>
@@ -627,7 +627,7 @@ export default function LoginComponent() {
                                             className={`w-full border h-12 rounded-lg px-4 text-center text-lg tracking-widest focus:ring-2 outline-none ${
                                                 fieldErrors.otp
                                                     ? "border-red-300 bg-red-50 focus:ring-red-400"
-                                                    : "border-gray-300 bg-gray-50 focus:ring-indigo-400"
+                                                    : "border-gray-300 bg-gray-50 focus:ring-pink-500"
                                             }`}
                                             placeholder="6-digit code"
                                             disabled={otpValidityRemaining === 0 && otpSentTime !== null}
@@ -640,7 +640,7 @@ export default function LoginComponent() {
                                     <button
                                         onClick={handleResetPassword}
                                         disabled={resetting || otp.length !== 6 || (otpValidityRemaining === 0 && otpSentTime !== null)}
-                                        className="w-full h-12 bg-gradient-to-r from-pink-600 to-red-500 hover:opacity-90 text-white rounded-lg font-semibold transition disabled:opacity-50"
+                                        className="w-full h-12 bg-gradient-to-r from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700 text-white rounded-lg font-semibold transition disabled:opacity-50"
                                     >
                                         {resetting ? "Resetting Password..." : "Reset Password"}
                                     </button>

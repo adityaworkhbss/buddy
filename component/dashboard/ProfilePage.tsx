@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/component/ui/tabs";
 import { Badge } from "@/component/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  User, Phone, Mail, Briefcase, BookOpen, Bookmark, Share2, Edit2, X, Save, Camera, Heart, Trash2, Home, MapPin, Plus
+  User, Phone, Mail, Briefcase, BookOpen, Bookmark, Share2, Edit2, X, Save, Camera, Heart, Trash2, Home, MapPin, Plus, Calendar as CalendarIcon
 } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/component/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/component/ui/select";
@@ -26,6 +26,9 @@ import {
 } from "@/component/ui/dialog";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Calendar } from "@/component/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/component/ui/popover";
+import { format } from "date-fns";
 
 interface JobExperience {
   id: string;
@@ -1005,7 +1008,7 @@ export const ProfilePage = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-gray-400 hover:text-red-500"
+                          className="h-6 w-6 text-gray-400 hover:text-pink-500"
                           onClick={() => handleRemoveJobExperience(exp.id)}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1135,7 +1138,7 @@ export const ProfilePage = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-6 w-6 text-gray-400 hover:text-red-500"
+                          className="h-6 w-6 text-gray-400 hover:text-pink-500"
                           onClick={() => handleRemoveEducation(edu.id)}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1258,14 +1261,31 @@ export const ProfilePage = () => {
                   <div className="space-y-2">
                     <Label className="text-gray-700">Moving Date</Label>
                     {isEditMode ? (
-                      <Input
-                        type="date"
-                        value={currentProfile.housingPreferences?.movingDate || ""}
-                        onChange={(e) => handleHousingPreferenceChange("movingDate", e.target.value)}
-                        className="bg-white border-gray-300"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left font-normal bg-white"
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {currentProfile.housingPreferences?.movingDate ? (
+                              format(new Date(currentProfile.housingPreferences.movingDate), "PPP")
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            selected={currentProfile.housingPreferences?.movingDate ? new Date(currentProfile.housingPreferences.movingDate) : undefined}
+                            onSelect={(date) => {
+                              handleHousingPreferenceChange("movingDate", date ? date.toISOString().split('T')[0] : "");
+                            }}
+                          />
+                        </PopoverContent>
+                      </Popover>
                     ) : (
-                      <Input value={currentProfile.housingPreferences?.movingDate || "2/1/2024"} className="bg-gray-50 border-gray-300" readOnly />
+                      <Input value={currentProfile.housingPreferences?.movingDate || "Not set"} className="bg-gray-50 border-gray-300" readOnly />
                     )}
                   </div>
                   <div className="space-y-2 relative" ref={locationDropdownRef}>
@@ -1563,17 +1583,32 @@ export const ProfilePage = () => {
                           </div>
                           <div className="space-y-2">
                             <Label className="text-gray-700 text-sm">Available From</Label>
-                            <Input
-                              type="date"
-                              value={room.available}
-                              onChange={(e) => {
-                                const updatedRooms = currentProfile.flatDetails?.rooms?.map(r =>
-                                  r.id === room.id ? { ...r, available: e.target.value } : r
-                                ) || [];
-                                handleFlatDetailChange("rooms", updatedRooms);
-                              }}
-                              className="bg-white border-gray-300"
-                            />
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start text-left font-normal bg-white text-sm h-10"
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {room.available ? (
+                                    format(new Date(room.available), "PPP")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  selected={room.available ? new Date(room.available) : undefined}
+                                  onSelect={(date) => {
+                                    const updatedRooms = currentProfile.flatDetails?.rooms?.map(r =>
+                                      r.id === room.id ? { ...r, available: date ? date.toISOString().split('T')[0] : "" } : r
+                                    ) || [];
+                                    handleFlatDetailChange("rooms", updatedRooms);
+                                  }}
+                                />
+                              </PopoverContent>
+                            </Popover>
                           </div>
                           <div className="space-y-2">
                             <Label className="text-gray-700 text-sm">Quantity</Label>
@@ -1733,7 +1768,7 @@ export const ProfilePage = () => {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-gray-400 hover:text-red-500"
+                              className="h-8 w-8 text-gray-400 hover:text-pink-500"
                               onClick={() => {
                                 setSavedProfiles(prev => prev.filter(p => p.id !== savedProfile.id));
                                 toast({ title: "Profile removed from saved" });
