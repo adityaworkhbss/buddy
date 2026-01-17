@@ -122,11 +122,49 @@ export const ProfileCard = ({
     }
   }, [profile.id]);
 
-  // Check if conversation exists on mount
+  // Check conversation status and saved profile when profile changes.
+  // If the parent already informed us the profile is in conversation (prop), use it immediately
+  // and skip the remote check to avoid a render-delay.
   useEffect(() => {
-    checkConversationExists();
+    let ac = new AbortController();
+
+    // Reset conversation flag immediately on profile change based on parent hint (avoids showing stale value)
+    setHasExistingConversation(alreadyInConversation ?? false);
+
+    // If parent already says we are in conversation, no need to fetch
+    if (alreadyInConversation) {
+      // nothing more to do
+    } else {
+      // Otherwise, perform a network check; cancel previous requests when profile changes
+      (async () => {
+        try {
+          const meResponse = await fetch("/api/user/me", { signal: ac.signal });
+          const meData = await meResponse.json();
+          if (!meData.success || !meData.user) return;
+
+          const conversationsResponse = await fetch(`/api/messages/conversations?userId=${meData.user.id}`, { signal: ac.signal });
+          const conversationsData = await conversationsResponse.json();
+
+          if (conversationsData.success) {
+            const hasConv = conversationsData.conversations.some(
+              (conv: any) => conv.otherUserId === parseInt(profile.id)
+            );
+            // Only set true if found; we've already reset the state above so we can set directly
+            if (hasConv) setHasExistingConversation(true);
+          }
+        } catch (e: any) {
+          if (e.name !== "AbortError") {
+            console.error("Error checking conversation:", e);
+          }
+        }
+      })();
+    }
+
+    // Always check saved profile in background (doesn't affect conversation render)
     checkIfProfileIsSaved();
-  }, [profile.id]);
+
+    return () => ac.abort();
+  }, [profile.id, alreadyInConversation]);
 
   const checkConversationExists = async () => {
     try {
