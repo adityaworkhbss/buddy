@@ -15,7 +15,18 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 // Create HTTP server
-const server = http.createServer();
+const server = http.createServer((req, res) => {
+    // Basic health and root endpoint so platform port checks succeed
+    if (req.method === 'GET' && (req.url === '/' || req.url === '/health')) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, uptime: process.uptime() }));
+        return;
+    }
+
+    // For any other requests, return 404 to keep server simple
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
+});
 
 // Initialize Socket.IO
 // Allow multiple origins for CORS (Vercel app + localhost for development)
@@ -307,3 +318,17 @@ process.on("SIGTERM", async () => {
     });
 });
 
+// Global error handlers to improve resiliency and logs
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception thrown:', err);
+    // You may choose to exit or attempt graceful shutdown; here we log and exit
+    try {
+        prisma.$disconnect();
+    } catch (e) {
+        console.error('Error disconnecting prisma after uncaughtException', e);
+    }
+    process.exit(1);
+});

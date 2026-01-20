@@ -107,12 +107,12 @@ export const MessagePage = () => {
       }
     };
 
-    const handleMessageSentAck = (msg) => {
+    const handleMessageSentAck = (msg: Partial<Message> & { tempId?: number | string }) => {
       // Server ack for sender contains tempId - replace optimistic message
       try {
         const serverTempId = msg?.tempId;
         if (serverTempId) {
-          setMessages(prev => prev.map(m => (m.id === serverTempId ? msg : m)));
+          setMessages(prev => prev.map(m => (m.id === serverTempId ? { ...(msg as Message), pending: false, failed: false } : m)));
         }
       } catch (e) {
         console.warn("Error handling message_sent ack", e);
@@ -654,7 +654,7 @@ export const MessagePage = () => {
       
       // Remove optimistic message on error
       setMessages(prev => prev.filter(m => m.id !== tempMessageId));
-      
+
       // Revert conversation update
       setConversations(prev =>
         prev.map(conv => {
@@ -925,12 +925,50 @@ export const MessagePage = () => {
                           ) : (
                             <div className="flex items-center gap-2">
                               <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                              {/* pending indicator for optimistic messages */}
-                              {/* @ts-ignore */}
-                              {/** prefer a pending flag added to optimistic messages **/}
+                              {/* pending indicator: small spinner that uses current text color */}
                               {/* @ts-ignore */}
                               {message.pending && (
-                                <span className="text-xs text-gray-300 italic">sending…</span>
+                                <span className={cn(
+                                  "flex items-center gap-2 ml-2",
+                                  isUserMessage ? "text-white" : "text-gray-500"
+                                )}>
+                                  <span
+                                    className={cn(
+                                      "inline-block w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin",
+                                      isUserMessage ? "border-white/60" : "border-gray-300"
+                                    )}
+                                    aria-hidden="true"
+                                  />
+                                  <span className="sr-only">Sending</span>
+                                </span>
+                              )}
+
+                              {/* failed indicator + retry button */}
+                              {/* @ts-ignore */}
+                              {message.failed && (
+                                <div className="flex items-center gap-2 ml-2">
+                                  {/* error icon */}
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className={cn("w-4 h-4 flex-shrink-0", isUserMessage ? "text-red-200" : "text-red-500")} fill="none" stroke="currentColor">
+                                    <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                    <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01" />
+                                  </svg>
+
+                                  <button
+                                    onClick={() => retryMessage(message.id)}
+                                    className={cn(
+                                      "inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded",
+                                      isUserMessage ? "bg-white/10 text-white hover:bg-white/20" : "bg-red-50 text-red-600 hover:bg-red-100"
+                                    )}
+                                    title="Retry sending message"
+                                    type="button"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-3.95-7.15" />
+                                      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M21 3v6h-6" />
+                                    </svg>
+                                    Retry
+                                  </button>
+                                </div>
                               )}
                             </div>
                           )}
