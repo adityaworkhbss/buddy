@@ -75,6 +75,47 @@ export const MessagePage = () => {
   const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
   const [typingUsers, setTypingUsers] = useState<Record<number, boolean>>({});
 
+  // Retry a failed optimistic message by temp id
+  const retryMessage = async (tempMessageId: number) => {
+    const msg = messages.find(m => m.id === tempMessageId);
+    if (!msg) return;
+
+    // Mark as pending and clear failed
+    setMessages(prev => prev.map(m => m.id === tempMessageId ? { ...m, // @ts-ignore allow pending/failed
+      pending: true, failed: false } as Message : m));
+
+    try {
+      const formData = new FormData();
+      formData.append('senderId', String(msg.senderId));
+      formData.append('receiverId', String(msg.receiverId));
+      formData.append('content', msg.content || '');
+      formData.append('type', msg.type || 'text');
+      formData.append('tempId', String(tempMessageId));
+      if (msg.conversationId) formData.append('conversationId', String(msg.conversationId));
+
+      const response = await fetch('/api/messages', { method: 'POST', body: formData });
+      const result = await response.json();
+
+      if (result.success) {
+        setMessages(prev => prev.map(m => m.id === tempMessageId ? { ...(result.message as Message), // ensure flags cleared
+          // @ts-ignore
+          pending: false, // @ts-ignore
+          failed: false } as Message : m));
+      } else {
+        setMessages(prev => prev.map(m => m.id === tempMessageId ? { ...m, // @ts-ignore
+          pending: false, // @ts-ignore
+          failed: true } as Message : m));
+        toast({ title: 'Error', description: result.message || 'Failed to resend message', variant: 'destructive' });
+      }
+    } catch (err: any) {
+      console.error('Retry send error:', err);
+      setMessages(prev => prev.map(m => m.id === tempMessageId ? { ...m, // @ts-ignore
+        pending: false, // @ts-ignore
+        failed: true } as Message : m));
+      toast({ title: 'Error', description: err?.message || 'Failed to resend message', variant: 'destructive' });
+    }
+  };
+
   // Initialize socket connection
   const { socket, isConnected } = useSocket(currentUserId);
 
