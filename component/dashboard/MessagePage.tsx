@@ -72,9 +72,67 @@ export const MessagePage = () => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
+  const [typingUsers, setTypingUsers] = useState<Record<number, boolean>>({});
 
   // Initialize socket connection
   const { socket, isConnected } = useSocket(currentUserId);
+
+  // Socket events: presence, typing, message_sent acknowledgements
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleOnlineUsers = (data: { onlineUsers: number[] }) => {
+      setOnlineUsers(data.onlineUsers || []);
+    };
+
+    const handleUserOnline = ({ userId }: { userId: number }) => {
+      setOnlineUsers(prev => {
+        if (prev.includes(userId)) return prev;
+        return [...prev, userId];
+      });
+    };
+
+    const handleUserOffline = ({ userId }: { userId: number }) => {
+      setOnlineUsers(prev => prev.filter(id => id !== userId));
+    };
+
+    const handleUserTyping = ({ userId, isTyping }: { userId: number, isTyping: boolean }) => {
+      setTypingUsers(prev => ({ ...prev, [userId]: isTyping }));
+      // Clear typing indicator after 3s of no updates
+      if (isTyping) {
+        setTimeout(() => {
+          setTypingUsers(prev => ({ ...prev, [userId]: false }));
+        }, 3000);
+      }
+    };
+
+    const handleMessageSentAck = (msg) => {
+      // Server ack for sender contains tempId - replace optimistic message
+      try {
+        const serverTempId = msg?.tempId;
+        if (serverTempId) {
+          setMessages(prev => prev.map(m => (m.id === serverTempId ? msg : m)));
+        }
+      } catch (e) {
+        console.warn("Error handling message_sent ack", e);
+      }
+    };
+
+    socket.on("online_users", handleOnlineUsers);
+    socket.on("user_online", handleUserOnline);
+    socket.on("user_offline", handleUserOffline);
+    socket.on("user_typing", handleUserTyping);
+    socket.on("message_sent", handleMessageSentAck);
+
+    return () => {
+      socket.off("online_users", handleOnlineUsers);
+      socket.off("user_online", handleUserOnline);
+      socket.off("user_offline", handleUserOffline);
+      socket.off("user_typing", handleUserTyping);
+      socket.off("message_sent", handleMessageSentAck);
+    };
+  }, [socket]);
 
   // Fetch current user and conversations
   useEffect(() => {
@@ -477,6 +535,12 @@ export const MessagePage = () => {
     // Optimistically add message immediately for smooth UX
     const optimisticMessage: Message = {
       id: tempMessageId,
+      // attach tempId so we can match server response
+      // @ts-ignore - tempId and pending are not part of Message interface but used for optimistic matching
+      tempId: tempMessageId,
+      // optimistic pending flag
+      // @ts-ignore
+      pending: true,
       conversationId: selectedConversation.id,
       content: messageContent,
       type: "text",
@@ -540,6 +604,7 @@ export const MessagePage = () => {
       formData.append("receiverId", selectedConversation.otherUserId.toString());
       formData.append("content", messageContent);
       formData.append("type", "text");
+      formData.append("tempId", String(tempMessageId));
       if (selectedConversation.id) {
         formData.append("conversationId", selectedConversation.id.toString());
       }
@@ -553,20 +618,32 @@ export const MessagePage = () => {
 
       if (result.success) {
         // The socket event will handle adding the real message
-        // If socket is not connected, we need to replace optimistic message with real one
-        if (!isConnected || !socket) {
-          setMessages(prev => {
-            // Remove optimistic message and add real one
-            const filtered = prev.filter(m => m.id !== tempMessageId);
-            const exists = filtered.some(m => m.id === result.message.id);
-            if (exists) return filtered;
-            return [...filtered, result.message];
-          });
-        } else {
-          // Socket is connected, so the socket event will add the real message
-          // Remove the optimistic message when real one arrives (handled by socket listener)
-          // The socket listener checks for duplicates, so it will replace it
-        }
+        // Replace optimistic message with server-confirmed message (do this regardless of socket connection)
+        setMessages(prev => {
+          // If server returned tempId, match optimistics by that tempId property
+          const serverTempId = result.message?.tempId;
+          let replaced = prev;
+          if (serverTempId) {
+            replaced = prev.map(m => {
+              if (m.id === serverTempId) {
+                // Replace and mark as not pending
+                return { ...result.message, // server message has real id
+                  // @ts-ignore
+                  pending: false
+                };
+              }
+              return m;
+            });
+            // Remove any duplicate optimistic entries with same tempId
+            replaced = replaced.filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
+          } else {
+            // Fallback: remove the optimistic by tempMessageId
+            replaced = prev.map(m => (m.id === tempMessageId ? { ...result.message, // ensure pending false
+                // @ts-ignore
+                pending: false } : m)).filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i);
+          }
+          return replaced;
+        });
       } else {
         // Remove optimistic message on error
         setMessages(prev => prev.filter(m => m.id !== tempMessageId));
@@ -793,7 +870,7 @@ export const MessagePage = () => {
                 </Avatar>
                 <div>
                   <h3 className="font-semibold text-gray-900">{selectedConversation.otherUserName}</h3>
-                  <p className="text-xs text-gray-500">Active</p>
+                  <p className="text-xs text-gray-500">{onlineUsers.includes(selectedConversation.otherUserId) ? "Active" : "Offline"}{typingUsers[selectedConversation.otherUserId] ? " • typing..." : ""}</p>
                 </div>
               </div>
               <Button 
@@ -846,7 +923,16 @@ export const MessagePage = () => {
                               />
                             </div>
                           ) : (
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                              {/* pending indicator for optimistic messages */}
+                              {/* @ts-ignore */}
+                              {/** prefer a pending flag added to optimistic messages **/}
+                              {/* @ts-ignore */}
+                              {message.pending && (
+                                <span className="text-xs text-gray-300 italic">sending…</span>
+                              )}
+                            </div>
                           )}
                           <p
                             className={cn(
@@ -933,10 +1019,16 @@ export const MessagePage = () => {
                 >
                   <Paperclip className="h-5 w-5" />
                 </Button>
+                {/* Typing indicator emit */}
                 <Input
                   placeholder="Type a message"
                   value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
+                  onChange={(e) => {
+                    setMessageText(e.target.value);
+                    if (socket && selectedConversation) {
+                      socket.emit("typing", { conversationId: selectedConversation.id, userId: currentUserId, isTyping: Boolean(e.target.value) });
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();

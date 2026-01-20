@@ -143,9 +143,14 @@ export async function POST(req) {
             },
         });
 
+        // Attach tempId (if provided) so clients can match optimistic messages
+        const tempId = formData.get("tempId");
+        const responseMessage = Object.assign({}, message);
+        if (tempId) responseMessage.tempId = isNaN(Number(tempId)) ? tempId : Number(tempId);
+
         // Emit socket event to notify users about the new message
         try {
-            broadcastNewMessage(message, conversation.id, parseInt(receiverId));
+            broadcastNewMessage(responseMessage, conversation.id, parseInt(receiverId));
         } catch (socketError) {
             // Don't fail the request if socket emission fails
             console.error("Error emitting socket event:", socketError);
@@ -153,7 +158,7 @@ export async function POST(req) {
 
         return NextResponse.json({
             success: true,
-            message: message,
+            message: responseMessage,
         });
     } catch (error) {
         console.error("Error creating message:", error);

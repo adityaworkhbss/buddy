@@ -68,6 +68,21 @@ io.on("connection", (socket) => {
         socket.join(`user_${userId}`);
         console.log(`User ${userId} joined their room`);
 
+        // Notify others that this user is online
+        try {
+            io.emit("user_online", { userId });
+        } catch (e) {
+            console.warn("Failed to emit user_online", e);
+        }
+
+        // Send list of currently online users to the newly connected socket
+        try {
+            const onlineUsers = Array.from(userSockets.keys());
+            socket.emit("online_users", { onlineUsers });
+        } catch (e) {
+            console.warn("Failed to send online_users", e);
+        }
+
         socket.emit("connected", { userId, socketId: socket.id });
     });
 
@@ -218,6 +233,12 @@ io.on("connection", (socket) => {
         console.log("Client disconnected:", socket.id);
         if (socket.userId) {
             userSockets.delete(socket.userId);
+            // Notify others that this user went offline
+            try {
+                io.emit("user_offline", { userId: socket.userId });
+            } catch (e) {
+                console.warn("Failed to emit user_offline", e);
+            }
         }
     });
 
