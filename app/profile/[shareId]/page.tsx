@@ -8,6 +8,7 @@ import { Separator } from "@/component/ui/separator";
 import { Button } from "@/component/ui/button";
 import { MapPin, Briefcase, GraduationCap, Home, ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
+import { safeJson } from "@/lib/safeJson";
 
 interface ProfileData {
   id: number;
@@ -118,12 +119,15 @@ export default function PublicProfilePage() {
     try {
       setLoading(true);
       const response = await fetch(`/api/user/share/${shareId}`);
-      const data = await response.json();
+      const data = await safeJson(response);
 
-      if (data.success) {
+      if (data && data.success) {
         setProfile(data.profile);
       } else {
-        setError(data.message || "Profile not found");
+        // Provide richer diagnostics when data is null or empty
+        const msg = data?.message || data?.error || `Failed to fetch profile (status: ${response.status})`;
+        console.error("PublicProfilePage.fetchProfile: unexpected response:", { status: response.status, body: data });
+        setError(msg);
       }
     } catch (err: any) {
       console.error("Error fetching profile:", err);

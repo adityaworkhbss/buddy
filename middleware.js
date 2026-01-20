@@ -7,8 +7,10 @@ export async function middleware(request) {
     const publicRoutes = [
         "/login", 
         "/signup", 
-        "/api/login", 
-        "/api/signup", 
+        "/profile", // Allow public profile pages (e.g. /profile and /profile/:id)
+        "/api/user/share", // Allow public profile share API
+        "/api/login",
+        "/api/signup",
         "/api/send-otp", 
         "/api/verify-otp", 
         "/api/logout",
@@ -77,4 +79,3 @@ export const config = {
         "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
     ],
 };
-

@@ -4,9 +4,10 @@ import { prisma } from "@/lib/prisma";
 // GET - Get user profile by share ID (public endpoint)
 export async function GET(req, { params }) {
     try {
-        // In Next.js 16.0.3, params is an object, not a Promise
-        let shareId = params?.shareId;
-        
+        // `params` may be a Promise in newer Next.js. Await into a local variable so we can safely access properties.
+        const resolvedParams = await params;
+        let shareId = resolvedParams?.shareId;
+
         // Fallback: extract from URL if params is not available
         if (!shareId) {
             const url = new URL(req.url);
@@ -18,7 +19,7 @@ export async function GET(req, { params }) {
         }
 
         if (!shareId) {
-            console.error("Share ID missing. Params:", params, "URL:", req.url);
+            console.error("Share ID missing. Params:", resolvedParams, "URL:", req.url);
             return NextResponse.json(
                 { success: false, message: "Share ID is required" },
                 { status: 400 }
@@ -45,9 +46,12 @@ export async function GET(req, { params }) {
             },
         });
 
+        console.log("DB lookup result for shareId", shareId, user ? "FOUND" : "NOT FOUND");
+
         if (!user) {
+            // Ensure a clear JSON body is always returned for not-found
             return NextResponse.json(
-                { success: false, message: "Profile not found" },
+                { success: false, message: "Profile not found", shareId },
                 { status: 404 }
             );
         }
@@ -81,26 +85,26 @@ export async function GET(req, { params }) {
             })),
             housingDetails: user.housingDetails
                 ? {
-                      lookingFor: user.housingDetails.lookingFor,
-                      budgetMin: user.housingDetails.budgetMin,
-                      budgetMax: user.housingDetails.budgetMax,
-                      movingDate: user.housingDetails.movingDate,
-                      preferenceLocation: user.housingDetails.preferenceLocation,
-                      latitude: user.housingDetails.latitude,
-                      longitude: user.housingDetails.longitude,
-                      searchRadius: user.housingDetails.searchRadius,
-                      roomType: user.housingDetails.roomType,
-                      preferredAmenities: user.housingDetails.preferredAmenities,
-                      address: user.housingDetails.address,
-                      roomsAvailable: user.housingDetails.roomsAvailable,
-                      totalRooms: user.housingDetails.totalRooms,
-                      rentPerRoom: user.housingDetails.rentPerRoom,
-                      availableFrom: user.housingDetails.availableFrom,
-                      deposit: user.housingDetails.deposit,
-                      availableAmenities: user.housingDetails.availableAmenities,
-                      description: user.housingDetails.description,
-                      photosVideos: user.housingDetails.photosVideos,
-                  }
+                    lookingFor: user.housingDetails.lookingFor,
+                    budgetMin: user.housingDetails.budgetMin,
+                    budgetMax: user.housingDetails.budgetMax,
+                    movingDate: user.housingDetails.movingDate,
+                    preferenceLocation: user.housingDetails.preferenceLocation,
+                    latitude: user.housingDetails.latitude,
+                    longitude: user.housingDetails.longitude,
+                    searchRadius: user.housingDetails.searchRadius,
+                    roomType: user.housingDetails.roomType,
+                    preferredAmenities: user.housingDetails.preferredAmenities,
+                    address: user.housingDetails.address,
+                    roomsAvailable: user.housingDetails.roomsAvailable,
+                    totalRooms: user.housingDetails.totalRooms,
+                    rentPerRoom: user.housingDetails.rentPerRoom,
+                    availableFrom: user.housingDetails.availableFrom,
+                    deposit: user.housingDetails.deposit,
+                    availableAmenities: user.housingDetails.availableAmenities,
+                    description: user.housingDetails.description,
+                    photosVideos: user.housingDetails.photosVideos,
+                }
                 : null,
             createdAt: user.createdAt,
         };
@@ -111,10 +115,10 @@ export async function GET(req, { params }) {
         });
     } catch (error) {
         console.error("Error fetching profile by share ID:", error);
+        // Return an explicit JSON error body so callers see a helpful payload instead of an empty object
         return NextResponse.json(
-            { success: false, message: "Failed to fetch profile" },
+            { success: false, message: "Failed to fetch profile", error: String(error) },
             { status: 500 }
         );
     }
 }
-

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/component/ui/toaster";
+import AuthGuard from "@/component/auth/AuthGuard";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -24,7 +25,7 @@ export default function RootLayout({
         className={`${outfit.variable} antialiased`}
         suppressHydrationWarning
       >
-        {children}
+        <AuthGuard>{children}</AuthGuard>
         <Toaster />
       </body>
     </html>

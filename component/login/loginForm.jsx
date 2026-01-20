@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Phone, Lock, Eye, EyeOff, Mail, X } from "lucide-react";
+import { Phone, Lock, Eye, EyeOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useToast } from "../../hooks/use-toast";
 import { APP_CONFIG } from "../../config/appConfigs";
 import { OTP } from "../../lib/otpHandler";
+import { setClientToken } from "@/lib/auth.client";
 
 export default function LoginComponent() {
     const router = useRouter();
@@ -27,7 +28,6 @@ export default function LoginComponent() {
     const [otp, setOtp] = useState("");
     const [otpSent, setOtpSent] = useState(false);
     const [sendingOtp, setSendingOtp] = useState(false);
-    const [verifying, setVerifying] = useState(false);
     const [resetting, setResetting] = useState(false);
     const [confirmationResult, setConfirmationResult] = useState(null);
     const [otpSentTime, setOtpSentTime] = useState(null);
@@ -301,6 +301,14 @@ export default function LoginComponent() {
             }
             if (data.uid) {
                 localStorage.setItem("uid", data.uid);
+            }
+            // Store client JWT for client-side cache checks
+            if (data.token) {
+                try {
+                    setClientToken(data.token);
+                } catch (e) {
+                    console.error("Failed to store client JWT:", e);
+                }
             }
 
             toast({

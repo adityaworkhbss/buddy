@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "../../../lib/prisma";
 import { createSession, setSessionCookie } from "../../../lib/session";
+import { signToken } from "../../../lib/jwt";
 
 export async function POST(req) {
     try {
@@ -56,6 +57,10 @@ export async function POST(req) {
         // Create session for the new user
         const session = await createSession(user.id);
         
+        // Sign client JWT
+        const tokenPayload = { sub: user.id, uid: user.uid };
+        const clientJwt = signToken(tokenPayload, { expiresIn: process.env.JWT_CLIENT_EXPIRES_IN || "1h" });
+
         // Create response
         const response = NextResponse.json({
             success: true,
@@ -64,7 +69,8 @@ export async function POST(req) {
                 userId: user.id, // Primary key - required
                 uid: user.uid,
                 phone: user.phone,
-            }
+            },
+            token: clientJwt,
         });
 
         // Set session cookie
@@ -88,4 +94,3 @@ export async function POST(req) {
         );
     }
 }
-

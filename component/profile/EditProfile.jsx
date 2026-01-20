@@ -13,6 +13,7 @@ import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { Button } from "../ui/button";
 import { format } from "date-fns";
+import { safeJson } from "@/lib/safeJson";
 
 export default function EditProfile({ onSave }) {
     const { toast } = useToast();
@@ -369,9 +370,9 @@ export default function EditProfile({ onSave }) {
                 : `/api/user/profile?phone=${phone}`;
 
             const response = await fetch(url);
-            const result = await response.json();
+            const result = await safeJson(response);
 
-            if (result.success && result.profile) {
+            if (result && result.success && result.profile) {
                 const profile = result.profile;
                 
                 // Format work experiences

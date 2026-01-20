@@ -10,9 +10,8 @@ import { ScrollArea } from "@/component/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/component/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import { useSocket } from "@/hooks/useSocket";
-import type { Socket } from "socket.io-client";
 
 interface Conversation {
   id: number;
@@ -168,7 +167,7 @@ export const MessagePage = () => {
             m.senderId === message.senderId &&
             m.content === message.content &&
             m.receiverId === message.receiverId &&
-            typeof m.id === 'number' && m.id > 1000000000000 // Optimistic messages have timestamp IDs
+            m.id > 1000000000000 // Optimistic messages have timestamp IDs
           );
           
           if (isReplacingOptimistic) {
@@ -177,7 +176,7 @@ export const MessagePage = () => {
               if (m.senderId === message.senderId &&
                   m.content === message.content &&
                   m.receiverId === message.receiverId &&
-                  typeof m.id === 'number' && m.id > 1000000000000) {
+                  m.id > 1000000000000) {
                 return message;
               }
               return m;
@@ -842,7 +841,7 @@ export const MessagePage = () => {
                               <img
                                 src={message.fileUrl}
                                 alt={message.fileName || "Image"}
-                                className="max-w-full h-auto rounded-lg cursor-pointer"
+                                className="max-w-[200px] max-h-[200px] w-auto h-auto rounded-lg cursor-pointer object-cover"
                                 onClick={() => window.open(message.fileUrl || "", "_blank")}
                               />
                             </div>
@@ -938,7 +937,7 @@ export const MessagePage = () => {
                   placeholder="Type a message"
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSendMessage();

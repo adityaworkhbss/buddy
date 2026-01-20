@@ -72,22 +72,22 @@ export async function GET(req) {
         const { searchParams } = new URL(req.url);
         const targetUserId = searchParams.get("userId");
         
-        // If userId is provided, we need to check if current user is authorized
-        // For now, allow getting share ID for any user (can be restricted later)
+        // Public access: require `userId` query parameter to lookup another user's share ID
+        // If you want to allow returning the current user's shareId without auth, uncomment the fallback.
         let userId;
-        
+
         if (targetUserId) {
-            userId = parseInt(targetUserId);
+            userId = parseInt(targetUserId, 10);
         } else {
-            // Get current user if no userId specified
-            const user = await getCurrentUser(req);
-            if (!user) {
-                return NextResponse.json(
-                    { success: false, message: "Unauthorized" },
-                    { status: 401 }
-                );
-            }
-            userId = user.id;
+            // For public access we don't force authentication. Require userId param.
+            return NextResponse.json(
+                { success: false, message: "Provide userId query parameter for public access" },
+                { status: 400 }
+            );
+            // Optional: to support returning current user's shareId when authenticated, use:
+            // const user = await getCurrentUser(req);
+            // if (!user) return NextResponse.json({ success:false, message: 'Unauthorized' }, { status:401 });
+            // userId = user.id;
         }
 
         // Get user with share ID
@@ -153,4 +153,3 @@ export async function GET(req) {
         );
     }
 }
-

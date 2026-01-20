@@ -143,18 +143,33 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack, personalInf
                         body: fileFormData,
                     });
 
-                    const uploadResult = await uploadResponse.json();
-                    if (uploadResult.success && uploadResult.url) {
-                        uploadedUrls.push(uploadResult.url);
+                    const contentType = uploadResponse.headers.get("content-type") || "";
+                    if (!contentType.includes("application/json")) {
+                        const text = await uploadResponse.text();
+                        console.error("/api/upload returned non-JSON:", text.slice(0, 1000));
+                        toast({ title: "Upload Error", description: "File upload failed. Server returned an unexpected response.", variant: "destructive" });
+                        // skip this file but continue with others
+                        continue;
                     }
+
+                    const uploadResult = await uploadResponse.json();
+                    if (!uploadResponse.ok || !uploadResult.success) {
+                        console.error("Upload API error:", uploadResult);
+                        toast({ title: "Upload Error", description: uploadResult?.message || "File upload failed.", variant: "destructive" });
+                        continue;
+                    }
+
+                    if (uploadResult.url) uploadedUrls.push(uploadResult.url);
                 } catch (error) {
                     console.error("Error uploading file:", error);
+                    toast({ title: "Upload Error", description: "File upload failed. Please try again.", variant: "destructive" });
+                    // continue with next file
                 }
-            }
-        }
+             }
+         }
 
-        return uploadedUrls;
-    };
+         return uploadedUrls;
+     };
 
     // Save profile data to database
     const handleSaveProfile = async () => {
@@ -182,11 +197,23 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack, personalInf
                     body: profilePicFormData,
                 });
 
+                const picContentType = picUploadResponse.headers.get("content-type") || "";
+                if (!picContentType.includes("application/json")) {
+                    const text = await picUploadResponse.text();
+                    console.error("/api/upload (profile pic) returned non-JSON:", text.slice(0, 1000));
+                    toast({ title: "Upload Error", description: "Profile picture upload failed. Server returned an unexpected response.", variant: "destructive" });
+                    throw new Error("Profile picture upload failed: non-JSON response");
+                }
                 const picUploadResult = await picUploadResponse.json();
-                if (picUploadResult.success && picUploadResult.url) {
+                if (!picUploadResponse.ok || !picUploadResult.success) {
+                    console.error("Profile pic upload failed:", picUploadResult);
+                    toast({ title: "Upload Error", description: picUploadResult?.message || "Profile picture upload failed.", variant: "destructive" });
+                    throw new Error(picUploadResult?.message || "Profile picture upload failed");
+                }
+                if (picUploadResult.url) {
                     profilePictureUrl = picUploadResult.url;
                 }
-            }
+             }
 
             // Upload media files
             const mediaUrls = await uploadFiles(data.flatDetails?.media || [], "media");
@@ -215,6 +242,19 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack, personalInf
                     media: mediaUrls,
                 },
             };
+
+            // Normalize searchType to a consistent set of values: 'both', 'flat', 'flatmate'
+            const normalizeSearchType = (val) => {
+                if (!val) return 'both';
+                const s = String(val).toLowerCase();
+                if (s.includes('both')) return 'both';
+                if (s.includes('flatmate')) return 'flatmate';
+                if (s.includes('flat')) return 'flat';
+                return 'both';
+            };
+
+            housingDetailsToSave.searchType = normalizeSearchType(data.searchType);
+
             formData.append("housingDetails", JSON.stringify(housingDetailsToSave));
 
             const response = await fetch("/api/user/update-profile", {
@@ -222,10 +262,20 @@ export const HousingDetailsStep = ({ data, onUpdate, onNext, onBack, personalInf
                 body: formData,
             });
 
+            const contentType = response.headers.get("content-type") || "";
+            if (!contentType.includes("application/json")) {
+                const text = await response.text();
+                console.error("/api/user/update-profile returned non-JSON:", text.slice(0, 2000));
+                toast({ title: "Server Error", description: "Failed to save profile. Server returned an unexpected response.", variant: "destructive" });
+                throw new Error("/api/user/update-profile returned non-JSON response");
+            }
+
             const result = await response.json();
 
-            if (!result.success) {
-                throw new Error(result.message || "Failed to save profile");
+            if (!response.ok || !result.success) {
+                console.error("Update profile API error:", result);
+                toast({ title: "Error", description: result?.message || "Failed to save profile", variant: "destructive" });
+                throw new Error(result?.message || "Failed to save profile");
             }
 
             toast({

@@ -110,6 +110,32 @@ export const HomePage = () => {
     );
   };
 
+  // --- ADD: cached fetchMe helper to avoid repeated /api/user/me calls ---
+  const meCacheRef = useRef<any | null>(null);
+  const fetchMe = useCallback(async () => {
+    if (meCacheRef.current) return meCacheRef.current;
+    try {
+      const res = await fetch("/api/user/me", { credentials: "include" });
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("fetchMe: expected JSON but received:", text.slice(0, 1000));
+        return null;
+      }
+      const data = await res.json();
+      if (res.ok && data && data.success) {
+        meCacheRef.current = data;
+        return data;
+      }
+      console.error("fetchMe: failed to fetch current user", data);
+      return null;
+    } catch (err) {
+      console.error("fetchMe error:", err);
+      return null;
+    }
+  }, []);
+  // --- end fetchMe helper ---
+
   // Location search for filter
   const searchLocation = useCallback(async (query: string) => {
     if (!query.trim() || !mapboxToken) {
@@ -217,10 +243,9 @@ export const HomePage = () => {
     try {
       setLoading(true);
       
-      const meResponse = await fetch("/api/user/me");
-      const meData = await meResponse.json();
-      
-      if (!meData.success) {
+      // Use cached fetchMe helper
+      const meData = await fetchMe();
+      if (!meData || !meData.success) {
         throw new Error("Failed to get user information");
       }
 
@@ -308,6 +333,7 @@ export const HomePage = () => {
     }
   };
 
+  // Updated discoverUsers in `component/dashboard/HomePage.tsx`
   const discoverUsers = async (lat: number, lon: number, radius: number, offset: number) => {
     try {
       const params = new URLSearchParams({
@@ -320,27 +346,47 @@ export const HomePage = () => {
       });
 
       const response = await fetch(`/api/users/discover?${params}`, {
-        credentials: 'include'
+        credentials: "include",
       });
+
+      const contentType = response.headers.get("content-type") || "";
+
+      // If server returned HTML (eg. 404, auth redirect), read text and throw with context
+      if (!contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("discoverUsers: expected JSON but received:", text.slice(0, 1000));
+        throw new Error(
+            `Expected JSON response but received content-type=\${contentType}. Response snippet: \${text.slice(0, 500)}`
+        );
+      }
+
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || `Request failed with status ${response.status}`);
+      }
 
       if (data.success) {
         if (offset === 0) {
           setProfiles(data.users);
           setCurrentIndex(0);
         } else {
-          setProfiles(prev => [...prev, ...data.users]);
+          setProfiles((prev) => [...prev, ...data.users]);
         }
         setHasMore(data.hasMore);
-        setExcludedUserIds(prev => [...prev, ...data.users.map((u: DiscoveredUser) => u.id)]);
+        setExcludedUserIds((prev) => [...prev, ...data.users.map((u: DiscoveredUser) => u.id)]);
       } else {
         throw new Error(data.message || "Failed to discover users");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error discovering users:", error);
       toast({
         title: "Error",
-        description: "Failed to load users. Please try again.",
+        description:
+            typeof error === "string"
+                ? error
+                : error?.message ||
+                "Failed to load users. Server returned non-JSON response. Check the API route or authentication.",
         variant: "destructive",
       });
     }
@@ -349,11 +395,9 @@ export const HomePage = () => {
   const loadMoreUsers = async () => {
     if (loadingMore || !hasMore) return;
 
-    // Get location to use - filter location if available, otherwise user default location
-    const meResponse = await fetch("/api/user/me");
-    const meData = await meResponse.json();
-    
-    if (!meData.success) return;
+    // Use cached fetchMe helper to avoid duplicate calls
+    const meData = await fetchMe();
+    if (!meData || !meData.success) return;
 
     const profileResponse = await fetch(`/api/user/profile?userId=${meData.user.id}`);
     const profileData = await profileResponse.json();
@@ -432,10 +476,8 @@ export const HomePage = () => {
   const handleApplyFilters = async () => {
     setIsFilterOpen(false);
     // Use filter location if available, otherwise use user's default location
-    const meResponse = await fetch("/api/user/me");
-    const meData = await meResponse.json();
-    
-    if (!meData.success) {
+    const meData = await fetchMe();
+    if (!meData || !meData.success) {
       toast({
         title: "Error",
         description: "Failed to get user information.",
@@ -538,7 +580,7 @@ export const HomePage = () => {
   const currentProfile = profiles.length > 0 ? profiles[currentIndex] : null;
 
   return (
-    <div className="h-screen flex flex-col relative bg-pink-50">
+    <div className="h-screen flex flex-col relative bg-gray-50">
       {/* Floating Filter Button */}
       <Button
         onClick={() => setIsFilterOpen(true)}

@@ -7,7 +7,8 @@ import { Textarea } from "@/component/ui/textarea";
 import { Badge } from "@/component/ui/badge";
 import { Separator } from "@/component/ui/separator";
 import { MapPin, Briefcase, GraduationCap, Home, Send, Bookmark, Share2, MessageCircle, Copy } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { safeJson } from "@/lib/safeJson";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { StaticMap } from "@/component/ui/static-map";
@@ -89,6 +90,41 @@ export const ProfileCard = ({
 }: ProfileCardProps) => {
   const isLookingForFlatmate = profile.searchType === "flatmate";
   const { toast } = useToast();
+  // Normalize and detect searchType variants (handles legacy values like 'Open To Both')
+  const sTypeRaw = (profile.searchType || "").toString();
+  const sType = sTypeRaw.toLowerCase();
+  const isFlatmateType = sType.includes("flatmate");
+  const isFlatType = !isFlatmateType && sType.includes("flat");
+  const isBothType = sType.includes("both") || sType.trim() === "";
+  const showFlatSections = isBothType || isFlatmateType; // Flat Details, Rooms, Common Amenities
+  const showWorkExperience = isBothType || isFlatType || isFlatmateType; // Work Experience visible for all three cases
+  const showEducation = showWorkExperience;
+  const showMyHabits = showWorkExperience; // My Habits visible for all three cases
+
+  // Robust helper to fetch current user. Accepts optional AbortSignal.
+  const fetchMe = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch("/api/user/me", { credentials: "include", signal });
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        // If we got HTML (error page or redirect), log for debugging and return null
+        const text = await res.text();
+        console.error("/api/user/me returned non-JSON:", text.slice(0, 1000));
+        return null;
+      }
+      const data = await res.json();
+      if (!res.ok) {
+        console.error("/api/user/me returned error:", data);
+        return null;
+      }
+      return data;
+    } catch (err: any) {
+      if (err?.name === "AbortError") throw err;
+      console.error("Error fetching /api/user/me:", err);
+      return null;
+    }
+  }, []);
+
   const [saved, setSaved] = useState(isSaved);
   const [hasExistingConversation, setHasExistingConversation] = useState(alreadyInConversation ?? false);
   const [isSending, setIsSending] = useState(false);
@@ -138,12 +174,11 @@ export const ProfileCard = ({
       // Otherwise, perform a network check; cancel previous requests when profile changes
       (async () => {
         try {
-          const meResponse = await fetch("/api/user/me", { signal: ac.signal });
-          const meData = await meResponse.json();
-          if (!meData.success || !meData.user) return;
+          const meData = await fetchMe(ac.signal);
+          if (!meData) return;
 
           const conversationsResponse = await fetch(`/api/messages/conversations?userId=${meData.user.id}`, { signal: ac.signal });
-          const conversationsData = await conversationsResponse.json();
+          const conversationsData = await safeJson(conversationsResponse);
 
           if (conversationsData.success) {
             const hasConv = conversationsData.conversations.some(
@@ -168,13 +203,11 @@ export const ProfileCard = ({
 
   const checkConversationExists = async () => {
     try {
-      const meResponse = await fetch("/api/user/me");
-      const meData = await meResponse.json();
-      
-      if (!meData.success || !meData.user) return;
+      const meData = await fetchMe();
+      if (!meData) return;
 
       const conversationsResponse = await fetch(`/api/messages/conversations?userId=${meData.user.id}`);
-      const conversationsData = await conversationsResponse.json();
+      const conversationsData = await safeJson(conversationsResponse);
 
       if (conversationsData.success) {
         const hasConv = conversationsData.conversations.some(
@@ -194,10 +227,8 @@ export const ProfileCard = ({
       setIsSending(true);
       
       // Get current user ID
-      const meResponse = await fetch("/api/user/me");
-      const meData = await meResponse.json();
-      
-      if (!meData.success || !meData.user) {
+      const meData = await fetchMe();
+      if (!meData) {
         toast({
           title: "Error",
           description: "Failed to get user information",
@@ -221,7 +252,7 @@ export const ProfileCard = ({
         body: formData,
       });
 
-      const result = await response.json();
+      const result = await safeJson(response);
 
       if (result.success) {
         toast({
@@ -251,14 +282,12 @@ export const ProfileCard = ({
 
   const checkIfProfileIsSaved = async () => {
     try {
-      const meResponse = await fetch("/api/user/me");
-      const meData = await meResponse.json();
-      
-      if (!meData.success || !meData.user) return;
+      const meData = await fetchMe();
+      if (!meData) return;
 
       // Check if this profile is saved
       const savedResponse = await fetch(`/api/user/saved-profiles`);
-      const savedData = await savedResponse.json();
+      const savedData = await safeJson(savedResponse);
 
       if (savedData.success) {
         const isSaved = savedData.profiles.some(
@@ -273,10 +302,8 @@ export const ProfileCard = ({
 
   const handleSaveProfile = async () => {
     try {
-      const meResponse = await fetch("/api/user/me");
-      const meData = await meResponse.json();
-      
-      if (!meData.success || !meData.user) {
+      const meData = await fetchMe();
+      if (!meData) {
         toast({
           title: "Error",
           description: "Failed to get user information",
@@ -290,7 +317,7 @@ export const ProfileCard = ({
         const response = await fetch(`/api/user/saved-profiles?savedUserId=${profile.id}`, {
           method: "DELETE",
         });
-        const result = await response.json();
+        const result = await safeJson(response);
 
         if (result.success) {
           setSaved(false);
@@ -311,7 +338,7 @@ export const ProfileCard = ({
           },
           body: JSON.stringify({ savedUserId: profile.id }),
         });
-        const result = await response.json();
+        const result = await safeJson(response);
 
         if (result.success) {
           setSaved(true);
@@ -345,7 +372,7 @@ export const ProfileCard = ({
 
       // Get share ID for the profile being viewed (not current user)
       const shareResponse = await fetch(`/api/user/share?userId=${profile.id}`);
-      const shareData = await shareResponse.json();
+      const shareData = await safeJson(shareResponse);
 
       console.log("Share API response:", shareData);
 
@@ -431,7 +458,7 @@ Annual Rent: ${annualRent}`;
 
       // Get share ID for the profile being viewed
       const shareResponse = await fetch(`/api/user/share?userId=${profile.id}`);
-      const shareData = await shareResponse.json();
+      const shareData = await safeJson(shareResponse);
 
       if (shareData.success && shareData.shareUrl) {
         const shareText = buildShareText(shareData.shareUrl, profile);
@@ -522,8 +549,14 @@ Annual Rent: ${annualRent}`;
                <Bookmark className={`h-5 w-5 ${saved ? "fill-current" : ""}`} />
              </Button>
              <Badge variant={isLookingForFlatmate ? "default" : "secondary"} className="h-8 px-4 bg-pink-500 hover:bg-pink-600 text-white">
-               {isLookingForFlatmate ? "Has Flat" : "Looking for Flat"}
-             </Badge>
+              {(() => {
+                const s = sType; // reuse normalized lowercased value
+                if (s.includes("both")) return "Open to both";
+                if (s.includes("flatmate")) return "Looking for Flatmate";
+                if (s.includes("flat")) return "Looking for Flat";
+                return "Open to both";
+              })()}
+            </Badge>
            </div>
          </div>
 
@@ -561,7 +594,7 @@ Annual Rent: ${annualRent}`;
 
       <CardContent className="space-y-6 pt-6 px-6 pb-6 flex-1 overflow-y-auto" ref={contentRef}>
          {/* Flat Details */}
-         {profile.flatDetails && (
+         {showFlatSections && profile.flatDetails && (
            <div className="space-y-6">
              {/* Flat Details - Address & Map */}
              <div className="space-y-3">
@@ -610,7 +643,7 @@ Annual Rent: ${annualRent}`;
              </div>
 
              {/* Rooms Available */}
-             {profile.flatDetails.rooms && profile.flatDetails.rooms.length > 0 && (
+             {showFlatSections && profile.flatDetails.rooms && profile.flatDetails.rooms.length > 0 && (
                <div className="space-y-3">
                  <h4 className="font-semibold text-gray-900">Available Rooms</h4>
                  {profile.flatDetails.rooms.map((room) => (
@@ -678,7 +711,7 @@ Annual Rent: ${annualRent}`;
              )}
 
              {/* Common Amenities & Photos */}
-             {profile.flatDetails.commonAmenities && profile.flatDetails.commonAmenities.length > 0 && (
+             {showFlatSections && profile.flatDetails.commonAmenities && profile.flatDetails.commonAmenities.length > 0 && (
                <div className="space-y-4">
                  <h4 className="font-semibold text-gray-900">Common/Flat Amenities</h4>
                  <div className="flex flex-wrap gap-2">
@@ -706,7 +739,7 @@ Annual Rent: ${annualRent}`;
          )}
 
          {/* My Habits & Looking For - Side by Side */}
-         {(profile.myHabits || profile.lookingForHabits) && (
+         {showMyHabits && (profile.myHabits || profile.lookingForHabits) && (
            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              {/* My Habits */}
              {profile.myHabits && profile.myHabits.length > 0 && (
@@ -739,7 +772,7 @@ Annual Rent: ${annualRent}`;
          )}
 
          {/* Work Experience */}
-         {profile.jobExperiences && (
+         {showWorkExperience && profile.jobExperiences && (
            <div className="space-y-3">
              <h3 className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
                <Briefcase className="h-5 w-5 text-primary" />
@@ -768,7 +801,7 @@ Annual Rent: ${annualRent}`;
          )}
 
          {/* Education */}
-         {profile.educationExperiences && (
+         {showEducation && profile.educationExperiences && (
            <div className="space-y-3">
              <h3 className="text-lg font-semibold flex items-center gap-2 text-card-foreground">
                <GraduationCap className="h-5 w-5 text-primary" />

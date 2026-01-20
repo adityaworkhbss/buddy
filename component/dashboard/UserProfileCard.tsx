@@ -59,6 +59,29 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({
   const [isSharing, setIsSharing] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  // Robust helper to fetch current user
+  const fetchMe = async (signal?: AbortSignal) => {
+    try {
+      const res = await fetch('/api/user/me', { credentials: 'include', signal });
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('/api/user/me returned non-JSON:', text.slice(0, 1000));
+        return null;
+      }
+      const data = await res.json();
+      if (!res.ok) {
+        console.error('/api/user/me returned error:', data);
+        return null;
+      }
+      return data;
+    } catch (err: any) {
+      if (err?.name === 'AbortError') throw err;
+      console.error('Error fetching /api/user/me:', err);
+      return null;
+    }
+  };
+
   // Check if profile is saved on mount
   useEffect(() => {
     checkIfProfileIsSaved();
@@ -202,10 +225,9 @@ Annual Rent: ${annualRent}`;
 
   const handleSaveProfile = async () => {
     try {
-      const meResponse = await fetch("/api/user/me");
-      const meData = await meResponse.json();
-      
-      if (!meData.success || !meData.user) {
+      const meData = await fetchMe();
+
+      if (!meData) {
         toast({
           title: "Error",
           description: "Failed to get user information",
@@ -329,8 +351,14 @@ Annual Rent: ${annualRent}`;
                   <Bookmark className={`w-5 h-5 ${isSaved ? "fill-current" : ""}`} />
                 </Button>
                 <Badge className="bg-pink-500 text-white px-4 py-2 text-sm">
-                  {profile.searchType === "flatmate" ? "Has Flat" : "Looking for Flat"}
-                </Badge>
+                  {(() => {
+                    const s = (profile.searchType || "").toString().toLowerCase();
+                    if (s === "both") return "Open to both";
+                    if (s === "flat") return "Looking for Flat";
+                    if (s === "flatmate") return "Looking for Flatmate";
+                    return "Open to both";
+                  })()}
+                 </Badge>
               </div>
             </div>
           </div>
